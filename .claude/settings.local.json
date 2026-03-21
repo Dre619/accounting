@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan:*)",
+      "Bash(php -r \"require ''vendor/autoload.php''; echo ''PHP OK'';\")",
+      "Bash(grep -r \"declare.*route\\\\|window.route\\\\|global.*route\" d:/CloudOne/accounting/resources/js --include=*.ts -l)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -r \"declare.*route\\\\|global.*route\\\\|window\\\\.route\" d:/CloudOne/accounting/resources/js --include=*.ts --include=*.d.ts)",
+      "Bash(find d:/CloudOne/accounting -name ziggy* -not -path */node_modules/* -not -path */.git/*)",
+      "Bash(find d:/CloudOne/accounting/node_modules -name ziggy* -maxdepth 3)",
+      "Bash(xargs ls:*)",
+      "Bash(grep -v \"//.*route\\(\")"
+    ]
+  }
+}
