@@ -1,0 +1,1 @@
+import{S as e,T as t,U as n,k as r,m as i,nt as a,wt as o}from"./index.esm-ZDB2fFVx.js";var s={class:`text-sm text-red-600 dark:text-red-500`},c=r({__name:`InputError`,props:{message:{}},setup(r){return(c,l)=>a((n(),t(`div`,null,[e(`p`,s,o(r.message),1)],512)),[[i,r.message]])}});export{c as t};
