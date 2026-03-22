@@ -39,7 +39,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 });
 
-// Invitation acceptance (auth optional — redirect to login if not authenticated)
+// Invitation flow — all guest-accessible (controller handles auth checks internally)
 Route::get('invitations/{token}', [TeamInvitationController::class, 'show'])->name('invitations.show');
-Route::post('invitations/{token}/accept', [TeamInvitationController::class, 'accept'])->name('invitations.accept')->middleware('auth');
+Route::post('invitations/{token}/accept', [TeamInvitationController::class, 'accept'])->name('invitations.accept');
 Route::post('invitations/{token}/decline', [TeamInvitationController::class, 'decline'])->name('invitations.decline');
+Route::get('invitations/{token}/register', [TeamInvitationController::class, 'showRegister'])->name('invitations.register');
+Route::post('invitations/{token}/register', [TeamInvitationController::class, 'register'])->name('invitations.register.store');
