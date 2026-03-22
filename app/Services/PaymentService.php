@@ -7,6 +7,7 @@ use App\Models\Bill;
 use App\Models\Company;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
+use App\Models\JournalLine;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +32,7 @@ class PaymentService
             ]);
 
             // Apply allocations
+            $hasAllocations = false;
             foreach ($data['allocations'] ?? [] as $alloc) {
                 if (empty($alloc['amount']) || $alloc['amount'] <= 0) {
                     continue;
@@ -44,11 +46,55 @@ class PaymentService
                 ]);
 
                 $this->updateDocumentStatus($alloc['type'], $alloc['id'], $alloc['amount']);
+                $hasAllocations = true;
             }
 
-            $this->createJournalEntry($payment, $company);
+            $this->createJournalEntry($payment, $company, $hasAllocations);
 
             return $payment;
+        });
+    }
+
+    /**
+     * Add allocations to an existing payment that was recorded without allocations.
+     * Reverses the Customer Deposits credit and posts to AR, then marks invoices paid.
+     */
+    public function allocate(Payment $payment, array $allocations): void
+    {
+        DB::transaction(function () use ($payment, $allocations) {
+            $company   = $payment->company;
+            $allocated = 0;
+
+            foreach ($allocations as $alloc) {
+                if (empty($alloc['amount']) || $alloc['amount'] <= 0) {
+                    continue;
+                }
+
+                $available = $payment->unallocated_amount;
+                $amount    = min((float) $alloc['amount'], $available);
+
+                if ($amount <= 0) {
+                    break;
+                }
+
+                PaymentAllocation::create([
+                    'payment_id'       => $payment->id,
+                    'allocatable_type' => $alloc['type'] === 'invoice' ? Invoice::class : Bill::class,
+                    'allocatable_id'   => $alloc['id'],
+                    'amount'           => $amount,
+                ]);
+
+                $this->updateDocumentStatus($alloc['type'], $alloc['id'], $amount);
+                $allocated += $amount;
+            }
+
+            if ($allocated <= 0) {
+                return;
+            }
+
+            // Post adjustment journal: DR Customer Deposits, CR AR (for receipts)
+            //                          DR AP, CR Customer Deposits (for payments — supplier advance)
+            $this->createAllocationAdjustmentEntry($payment, $company, $allocated);
         });
     }
 
@@ -60,10 +106,9 @@ class PaymentService
                 $this->reverseDocumentAllocation($alloc);
             }
 
-            // Reverse journal entry
-            $original = $payment->journalEntries()->where('source', 'payment')->first();
-            if ($original) {
-                $this->reverseJournalEntry($original, $payment);
+            // Reverse all journal entries for this payment
+            foreach ($payment->journalEntries()->where('source', 'payment')->get() as $entry) {
+                $this->reverseJournalEntry($entry, $payment);
             }
 
             $payment->allocations()->delete();
@@ -75,11 +120,7 @@ class PaymentService
 
     private function updateDocumentStatus(string $type, int $id, float $amount): void
     {
-        if ($type === 'invoice') {
-            $doc = Invoice::find($id);
-        } else {
-            $doc = Bill::find($id);
-        }
+        $doc = $type === 'invoice' ? Invoice::find($id) : Bill::find($id);
 
         if (! $doc) {
             return;
@@ -110,7 +151,7 @@ class PaymentService
         $doc->save();
     }
 
-    private function createJournalEntry(Payment $payment, Company $company): void
+    private function createJournalEntry(Payment $payment, Company $company, bool $hasAllocations): void
     {
         $seq   = $company->journalEntries()->count() + 1;
         $label = $payment->type === 'receipt' ? 'Receipt' : 'Payment';
@@ -132,20 +173,37 @@ class PaymentService
         $lines = [];
 
         if ($payment->type === 'receipt') {
-            // DR Bank/Cash (deposit account)
+            // DR Bank/Cash
             $lines[] = ['debit' => $payment->amount, 'credit' => 0, 'account_id' => $payment->deposit_account_id, 'sort_order' => 0];
-            // CR Accounts Receivable (1200)
-            $arAccount = Account::where('company_id', $company->id)->where('code', '1200')->first();
-            if ($arAccount) {
-                $lines[] = ['debit' => 0, 'credit' => $payment->amount, 'account_id' => $arAccount->id, 'sort_order' => 1];
+
+            if ($hasAllocations) {
+                // CR Accounts Receivable (1200) — customer owes less
+                $arAccount = Account::where('company_id', $company->id)->where('code', '1200')->first();
+                if ($arAccount) {
+                    $lines[] = ['debit' => 0, 'credit' => $payment->amount, 'account_id' => $arAccount->id, 'sort_order' => 1];
+                }
+            } else {
+                // CR Customer Deposits (2050) — liability until allocated to an invoice
+                $cdAccount = Account::where('company_id', $company->id)->where('code', '2050')->first();
+                if ($cdAccount) {
+                    $lines[] = ['debit' => 0, 'credit' => $payment->amount, 'account_id' => $cdAccount->id, 'sort_order' => 1];
+                }
             }
         } else {
-            // DR Accounts Payable (2000)
-            $apAccount = Account::where('company_id', $company->id)->where('code', '2000')->first();
-            if ($apAccount) {
-                $lines[] = ['debit' => $payment->amount, 'credit' => 0, 'account_id' => $apAccount->id, 'sort_order' => 0];
+            if ($hasAllocations) {
+                // DR Accounts Payable (2000)
+                $apAccount = Account::where('company_id', $company->id)->where('code', '2000')->first();
+                if ($apAccount) {
+                    $lines[] = ['debit' => $payment->amount, 'credit' => 0, 'account_id' => $apAccount->id, 'sort_order' => 0];
+                }
+            } else {
+                // DR Supplier Advances — use AP since there's no separate prepayment asset yet
+                $apAccount = Account::where('company_id', $company->id)->where('code', '2000')->first();
+                if ($apAccount) {
+                    $lines[] = ['debit' => $payment->amount, 'credit' => 0, 'account_id' => $apAccount->id, 'sort_order' => 0];
+                }
             }
-            // CR Bank/Cash (deposit account)
+            // CR Bank/Cash
             $lines[] = ['debit' => 0, 'credit' => $payment->amount, 'account_id' => $payment->deposit_account_id, 'sort_order' => 1];
         }
 
@@ -165,7 +223,56 @@ class PaymentService
             'updated_at'       => now(),
         ]), $lines);
 
-        \App\Models\JournalLine::insert($rows);
+        JournalLine::insert($rows);
+    }
+
+    /**
+     * When allocating after the fact, move the amount from Customer Deposits → AR.
+     * Receipt: DR Customer Deposits (2050), CR AR (1200)
+     * Payment: DR AP (2000), CR Supplier Advances — currently both use AP so no-op here; extend if needed.
+     */
+    private function createAllocationAdjustmentEntry(Payment $payment, Company $company, float $amount): void
+    {
+        if ($payment->type !== 'receipt') {
+            return; // AP payments post correctly already
+        }
+
+        $seq = $company->journalEntries()->count() + 1;
+
+        $entry = JournalEntry::create([
+            'company_id'      => $company->id,
+            'entry_number'    => 'JNL-' . str_pad($seq, 4, '0', STR_PAD_LEFT),
+            'entry_date'      => now()->toDateString(),
+            'description'     => "Allocation — {$payment->payment_number}"
+                . ($payment->contact ? " — {$payment->contact->name}" : ''),
+            'status'          => 'posted',
+            'source'          => 'payment',
+            'sourceable_type' => Payment::class,
+            'sourceable_id'   => $payment->id,
+            'created_by'      => auth()->id(),
+            'posted_at'       => now(),
+        ]);
+
+        $cdAccount = Account::where('company_id', $company->id)->where('code', '2050')->first();
+        $arAccount = Account::where('company_id', $company->id)->where('code', '1200')->first();
+
+        $lines = [];
+        if ($cdAccount) {
+            $lines[] = ['debit' => $amount, 'credit' => 0, 'account_id' => $cdAccount->id, 'sort_order' => 0]; // DR Customer Deposits
+        }
+        if ($arAccount) {
+            $lines[] = ['debit' => 0, 'credit' => $amount, 'account_id' => $arAccount->id, 'sort_order' => 1]; // CR AR
+        }
+
+        $rows = array_map(fn ($l) => array_merge($l, [
+            'journal_entry_id' => $entry->id,
+            'description'      => $entry->description,
+            'contact_id'       => $payment->contact_id,
+            'created_at'       => now(),
+            'updated_at'       => now(),
+        ]), $lines);
+
+        JournalLine::insert($rows);
     }
 
     private function reverseJournalEntry(JournalEntry $original, Payment $payment): void
@@ -194,10 +301,11 @@ class PaymentService
             'credit'           => $l->debit,
             'contact_id'       => $l->contact_id,
             'sort_order'       => $l->sort_order,
-            'created_at'       => now(), 'updated_at' => now(),
+            'created_at'       => now(),
+            'updated_at'       => now(),
         ])->toArray();
 
-        \App\Models\JournalLine::insert($lines);
+        JournalLine::insert($lines);
     }
 
     private function nextPaymentNumber(Company $company, string $type): string

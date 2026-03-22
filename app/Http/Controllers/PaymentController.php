@@ -87,7 +87,48 @@ class PaymentController extends Controller
             'createdBy:id,name',
         ]);
 
-        return Inertia::render('payments/Show', ['payment' => $payment]);
+        // Load open documents so the Allocate panel has data ready
+        $openDocs = collect();
+        if ($payment->contact_id && $payment->unallocated_amount > 0) {
+            if ($payment->type === 'receipt') {
+                $openDocs = Invoice::where('company_id', $payment->company_id)
+                    ->where('contact_id', $payment->contact_id)
+                    ->whereIn('status', ['sent', 'partial', 'overdue'])
+                    ->get(['id', 'invoice_number as number', 'total', 'amount_due', 'due_date'])
+                    ->map(fn ($d) => array_merge($d->toArray(), ['doc_type' => 'invoice']));
+            } else {
+                $openDocs = Bill::where('company_id', $payment->company_id)
+                    ->where('contact_id', $payment->contact_id)
+                    ->whereIn('status', ['approved', 'partial', 'overdue'])
+                    ->get(['id', 'bill_number as number', 'total', 'amount_due', 'due_date'])
+                    ->map(fn ($d) => array_merge($d->toArray(), ['doc_type' => 'bill']));
+            }
+        }
+
+        return Inertia::render('payments/Show', [
+            'payment'           => $payment,
+            'openDocs'          => $openDocs,
+            'unallocatedAmount' => $payment->unallocated_amount,
+        ]);
+    }
+
+    /**
+     * Allocate an existing payment to invoices / bills after the fact.
+     */
+    public function allocate(Request $request, Payment $payment): RedirectResponse
+    {
+        $this->authorise($request, $payment);
+
+        $validated = $request->validate([
+            'allocations'          => ['required', 'array', 'min:1'],
+            'allocations.*.type'   => ['required', 'in:invoice,bill'],
+            'allocations.*.id'     => ['required', 'integer'],
+            'allocations.*.amount' => ['required', 'numeric', 'min:0.01'],
+        ]);
+
+        $this->service->allocate($payment, $validated['allocations']);
+
+        return back()->with('success', 'Allocations saved.');
     }
 
     public function destroy(Request $request, Payment $payment): RedirectResponse
@@ -106,7 +147,7 @@ class PaymentController extends Controller
     {
         $company   = $request->user()->currentCompany;
         $contactId = $request->integer('contact_id');
-        $type      = $request->query('type', 'receipt'); // receipt → invoices, payment → bills
+        $type      = $request->query('type', 'receipt');
 
         if ($type === 'receipt') {
             $docs = Invoice::where('company_id', $company->id)

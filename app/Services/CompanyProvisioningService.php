@@ -68,6 +68,7 @@ class CompanyProvisioningService
 
         // ── Liabilities ───────────────────────────────────────────────────────
         $make('2000', 'Accounts Payable',        'liability', 'current_liability', 'Current Liabilities');
+        $make('2050', 'Customer Deposits',       'liability', 'current_liability', 'Current Liabilities');
         $make('2100', 'VAT Payable (Output)',     'liability', 'current_liability', 'Current Liabilities');
         $make('2200', 'WHT Payable',             'liability', 'current_liability', 'Current Liabilities');
         $make('2300', 'PAYE Payable',            'liability', 'current_liability', 'Current Liabilities');

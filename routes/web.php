@@ -62,6 +62,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             });
 
             Route::get('payments/open-documents', [PaymentController::class, 'openDocuments'])->name('payments.open-documents');
+            Route::post('payments/{payment}/allocate', [PaymentController::class, 'allocate'])->name('payments.allocate');
             Route::resource('payments', PaymentController::class)->except(['edit', 'update']);
 
             Route::resource('accounts', AccountController::class);
