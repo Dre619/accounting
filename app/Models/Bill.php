@@ -32,6 +32,8 @@ class Bill extends Model
         'created_by',
         'approved_at',
         'voided_at',
+        'zra_submitted_at',
+        'zra_confirmation_no',
     ];
 
     protected $casts = [
@@ -46,6 +48,7 @@ class Bill extends Model
         'amount_due'             => 'decimal:2',
         'approved_at'            => 'datetime',
         'voided_at'              => 'datetime',
+        'zra_submitted_at'       => 'datetime',
     ];
 
     public function company(): BelongsTo

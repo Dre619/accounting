@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Bill;
 use App\Models\Company;
 use App\Models\Invoice;
 use Illuminate\Support\Facades\Http;
@@ -67,11 +68,37 @@ class ZraVsdcService
         return $data;
     }
 
+    /**
+     * Submit a purchase (bill) to ZRA via the VSDC.
+     * Calls POST /trnsPurchase/savePurchase and stores the confirmation number on the bill.
+     *
+     * @return array The raw `data` block from the VSDC response
+     * @throws RuntimeException on HTTP failure or non-000 result code
+     */
+    public function submitPurchase(Bill $bill): array
+    {
+        $company = $bill->company;
+        $this->assertConfigured($company);
+
+        $payload = $this->buildPurchasePayload($bill, $company);
+
+        $response = $this->post($company, '/trnsPurchase/savePurchase', $payload);
+
+        $data = $response['data'] ?? [];
+
+        $bill->update([
+            'zra_submitted_at'    => now(),
+            'zra_confirmation_no' => $data['rcptNo'] ?? ($data['confirmationNo'] ?? null),
+        ]);
+
+        return $data;
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private function buildSalePayload(Invoice $invoice, Company $company): array
     {
-        $items     = $invoice->items->load('taxRate');
+        $items     = $invoice->items->load(['taxRate', 'goodsCode', 'serviceCode']);
         $issueDt   = $invoice->issue_date->format('Ymd');
         $confirmDt = now()->format('YmdHis');
 
@@ -95,7 +122,7 @@ class ZraVsdcService
             $itemList[] = [
                 'itemSeq'       => $seq + 1,
                 'itemCd'        => $this->itemCode($seq + 1),
-                'itemClsCd'     => '5020230100',   // generic unclassified service
+                'itemClsCd'     => $item->itemClsCd() ?? '5020230100',
                 'itemNm'        => mb_substr($item->description, 0, 100),
                 'bcd'           => null,
                 'pkgUnitCd'     => 'NT',
@@ -190,6 +217,96 @@ class ZraVsdcService
                 'prchrAcptcYn' => 'N',
             ],
             'itemList' => $itemList,
+        ];
+    }
+
+    private function buildPurchasePayload(Bill $bill, Company $company): array
+    {
+        $items     = $bill->items->load(['taxRate', 'goodsCode', 'serviceCode']);
+        $issueDt   = $bill->issue_date->format('Ymd');
+        $confirmDt = now()->format('YmdHis');
+
+        $taxBuckets = ['A' => ['taxbl' => 0.0, 'tax' => 0.0],
+                       'B' => ['taxbl' => 0.0, 'tax' => 0.0],
+                       'C1'=> ['taxbl' => 0.0, 'tax' => 0.0],
+                       'C2'=> ['taxbl' => 0.0, 'tax' => 0.0],
+                       'C3'=> ['taxbl' => 0.0, 'tax' => 0.0],
+                       'D' => ['taxbl' => 0.0, 'tax' => 0.0]];
+
+        $itemList = [];
+        foreach ($items as $seq => $item) {
+            $taxCd  = $this->mapTaxType($item->taxRate?->rate);
+            $taxbl  = (float) $item->subtotal;
+            $taxAmt = (float) $item->tax_amount;
+
+            $taxBuckets[$taxCd]['taxbl'] += $taxbl;
+            $taxBuckets[$taxCd]['tax']   += $taxAmt;
+
+            $itemList[] = [
+                'itemSeq'       => $seq + 1,
+                'itemCd'        => $this->itemCode($seq + 1),
+                'itemClsCd'     => $item->itemClsCd() ?? '5020230100',
+                'itemNm'        => mb_substr($item->description, 0, 100),
+                'bcd'           => null,
+                'pkgUnitCd'     => 'NT',
+                'pkg'           => 1,
+                'qtyUnitCd'     => 'BA',
+                'qty'           => (float) $item->quantity,
+                'prc'           => (float) $item->unit_price,
+                'splyAmt'       => $taxbl,
+                'dcRt'          => (float) $item->discount_percent,
+                'dcAmt'         => round((float) $item->quantity * (float) $item->unit_price * ((float) $item->discount_percent / 100), 2),
+                'taxblAmt'      => $taxbl,
+                'taxAmt'        => $taxAmt,
+                'totAmt'        => (float) $item->total,
+            ];
+        }
+
+        $totTaxblAmt = array_sum(array_column($taxBuckets, 'taxbl'));
+        $totTaxAmt   = array_sum(array_column($taxBuckets, 'tax'));
+
+        return [
+            'tpin'         => $company->tpin,
+            'bhfId'        => $company->vsdc_bhf_id,
+            'orgInvcNo'    => 0,
+            'spplrTpin'    => $bill->contact?->tpin,
+            'spplrNm'      => $bill->contact?->name,
+            'spplrInvcNo'  => $bill->bill_number,
+            'regTyCd'      => 'M',
+            'pchsTyCd'     => 'N',
+            'rcptTyCd'     => 'P',
+            'pmtTyCd'      => '01',
+            'pchsSttsCd'   => '02',
+            'cfmDt'        => $confirmDt,
+            'pchsDt'       => $issueDt,
+            'totItemCnt'   => count($itemList),
+            'taxblAmtA'    => $taxBuckets['A']['taxbl'],
+            'taxblAmtB'    => $taxBuckets['B']['taxbl'],
+            'taxblAmtC1'   => $taxBuckets['C1']['taxbl'],
+            'taxblAmtC2'   => $taxBuckets['C2']['taxbl'],
+            'taxblAmtC3'   => $taxBuckets['C3']['taxbl'],
+            'taxblAmtD'    => $taxBuckets['D']['taxbl'],
+            'taxRtA'       => 16.0,
+            'taxRtB'       => 16.0,
+            'taxRtC1'      => 0.0,
+            'taxRtC2'      => 0.0,
+            'taxRtC3'      => 0.0,
+            'taxRtD'       => 0.0,
+            'taxAmtA'      => $taxBuckets['A']['tax'],
+            'taxAmtB'      => $taxBuckets['B']['tax'],
+            'taxAmtC1'     => $taxBuckets['C1']['tax'],
+            'taxAmtC2'     => $taxBuckets['C2']['tax'],
+            'taxAmtC3'     => $taxBuckets['C3']['tax'],
+            'taxAmtD'      => $taxBuckets['D']['tax'],
+            'totTaxblAmt'  => $totTaxblAmt,
+            'totTaxAmt'    => $totTaxAmt,
+            'totAmt'       => (float) $bill->total,
+            'remark'       => $bill->notes ? mb_substr($bill->notes, 0, 200) : null,
+            'regrId'       => 'admin',
+            'regrNm'       => $company->name,
+            'modrId'       => 'admin',
+            'modrNm'       => $company->name,
+            'itemList'     => $itemList,
         ];
     }
 

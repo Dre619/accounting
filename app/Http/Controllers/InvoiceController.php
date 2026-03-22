@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Mail\InvoiceEmail;
+use App\Models\GoodsCode;
 use App\Models\Invoice;
+use App\Models\ServiceCode;
 use App\Models\TaxRate;
 use App\Services\InvoiceService;
 use Illuminate\Http\RedirectResponse;
@@ -176,16 +178,19 @@ class InvoiceController extends Controller
         $company = $request->user()->currentCompany;
 
         return [
-            'invoice'   => null,
-            'contacts'  => $company->contacts()->customers()->active()
+            'invoice'      => null,
+            'contacts'     => $company->contacts()->customers()->active()
                 ->orderBy('name')
                 ->get(['id', 'name', 'email', 'tpin']),
-            'accounts'  => $company->accounts()->active()->ofType('income')
+            'accounts'     => $company->accounts()->active()->ofType('income')
                 ->orderBy('code')
                 ->get(['id', 'code', 'name']),
-            'taxRates'  => $company->taxRates()->active()->vat()
+            'taxRates'     => $company->taxRates()->active()->vat()
                 ->orderBy('name')
                 ->get(['id', 'name', 'code', 'rate']),
+            'vsdcEnabled'  => (bool) $company->vsdc_initialized,
+            'goodsCodes'   => GoodsCode::orderBy('name')->get(['id', 'name', 'hs_code']),
+            'serviceCodes' => ServiceCode::orderBy('name')->get(['id', 'name', 'hs_code']),
         ];
     }
 
@@ -200,14 +205,16 @@ class InvoiceController extends Controller
             'footer'          => ['nullable', 'string', 'max:500'],
             'discount_amount' => ['nullable', 'numeric', 'min:0'],
             'items'           => ['required', 'array', 'min:1'],
-            'items.*.id'                => ['nullable', 'integer'],
-            'items.*.description'       => ['required', 'string', 'max:255'],
-            'items.*.account_id'        => ['nullable', 'integer'],
-            'items.*.tax_rate_id'       => ['nullable', 'integer'],
-            'items.*.quantity'          => ['required', 'numeric', 'min:0.001'],
-            'items.*.unit_price'        => ['required', 'numeric', 'min:0'],
-            'items.*.discount_percent'  => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'zra_invoice'               => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'items.*.id'               => ['nullable', 'integer'],
+            'items.*.description'      => ['required', 'string', 'max:255'],
+            'items.*.account_id'       => ['nullable', 'integer'],
+            'items.*.tax_rate_id'      => ['nullable', 'integer'],
+            'items.*.quantity'         => ['required', 'numeric', 'min:0.001'],
+            'items.*.unit_price'       => ['required', 'numeric', 'min:0'],
+            'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'items.*.item_type'        => ['nullable', 'in:goods,service'],
+            'items.*.cls_code_id'      => ['nullable', 'integer'],
+            'zra_invoice'              => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
         ]);
     }
 

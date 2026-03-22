@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+
 class BillItem extends Model
 {
     protected $fillable = [
@@ -19,6 +20,8 @@ class BillItem extends Model
         'tax_amount',
         'total',
         'sort_order',
+        'item_type',
+        'cls_code_id',
     ];
 
     protected $casts = [
@@ -43,6 +46,25 @@ class BillItem extends Model
     public function taxRate(): BelongsTo
     {
         return $this->belongsTo(TaxRate::class);
+    }
+
+    public function goodsCode(): BelongsTo
+    {
+        return $this->belongsTo(GoodsCode::class, 'cls_code_id');
+    }
+
+    public function serviceCode(): BelongsTo
+    {
+        return $this->belongsTo(ServiceCode::class, 'cls_code_id');
+    }
+
+    public function itemClsCd(): ?string
+    {
+        $code = $this->item_type === 'goods'
+            ? $this->goodsCode
+            : $this->serviceCode;
+
+        return $code ? (string) $code->hs_code : null;
     }
 
     public function calculate(): void

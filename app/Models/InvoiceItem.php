@@ -19,6 +19,8 @@ class InvoiceItem extends Model
         'tax_amount',
         'total',
         'sort_order',
+        'item_type',
+        'cls_code_id',
     ];
 
     protected $casts = [
@@ -43,6 +45,26 @@ class InvoiceItem extends Model
     public function taxRate(): BelongsTo
     {
         return $this->belongsTo(TaxRate::class);
+    }
+
+    public function goodsCode(): BelongsTo
+    {
+        return $this->belongsTo(GoodsCode::class, 'cls_code_id');
+    }
+
+    public function serviceCode(): BelongsTo
+    {
+        return $this->belongsTo(ServiceCode::class, 'cls_code_id');
+    }
+
+    /** Returns the ZRA HS code string for this item, or null if none selected. */
+    public function itemClsCd(): ?string
+    {
+        $code = $this->item_type === 'goods'
+            ? $this->goodsCode
+            : $this->serviceCode;
+
+        return $code ? (string) $code->hs_code : null;
     }
 
     public function calculate(): void

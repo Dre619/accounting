@@ -124,6 +124,8 @@ class InvoiceService
                     'tax_amount'       => $tax,
                     'total'            => $total,
                     'sort_order'       => $i,
+                    'item_type'        => $itemData['item_type'] ?? 'service',
+                    'cls_code_id'      => $itemData['cls_code_id'] ?? null,
                 ]);
                 $kept[] = $item->id;
             } else {
@@ -138,6 +140,8 @@ class InvoiceService
                     'tax_amount'       => $tax,
                     'total'            => $total,
                     'sort_order'       => $i,
+                    'item_type'        => $itemData['item_type'] ?? 'service',
+                    'cls_code_id'      => $itemData['cls_code_id'] ?? null,
                 ]);
                 $kept[] = $item->id;
             }

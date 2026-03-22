@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { CheckCircle2, Pencil, Printer, XCircle } from 'lucide-vue-next';
+import { CheckCircle2, Pencil, Printer, Send, XCircle } from 'lucide-vue-next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import * as bills from '@/routes/bills';
 
 interface Item { id: number; description: string; quantity: string; unit_price: string; discount_percent: string; subtotal: string; tax_amount: string; total: string; tax_rate: { name: string }|null; account: { code: string; name: string }|null }
-interface Bill { id: number; bill_number: string|null; status: string; issue_date: string; due_date: string; reference: string|null; notes: string|null; subtotal: string; tax_amount: string; discount_amount: string; total: string; amount_paid: string; amount_due: string; contact: { name: string; tpin: string|null }; items: Item[] }
+interface Bill { id: number; bill_number: string|null; status: string; issue_date: string; due_date: string; reference: string|null; notes: string|null; subtotal: string; tax_amount: string; discount_amount: string; total: string; amount_paid: string; amount_due: string; zra_submitted_at: string|null; zra_confirmation_no: string|null; contact: { name: string; tpin: string|null }; items: Item[] }
 
 const props = defineProps<{ bill: Bill; company: { name: string } }>();
 
@@ -19,8 +19,9 @@ const statusVariant: Record<string, 'default'|'secondary'|'destructive'|'outline
 };
 
 function fmt(v: string|number) { return Number(v).toLocaleString('en-ZM', { minimumFractionDigits: 2 }); }
-function approveBill() { if (confirm('Approve this bill and post to accounts payable?')) router.post(bills.approve.url(props.bill.id)); }
-function voidBill()    { if (confirm('Void this bill? A reversal journal entry will be created.')) router.post(bills.voidMethod.url(props.bill.id)); }
+function approveBill()   { if (confirm('Approve this bill and post to accounts payable?')) router.post(bills.approve.url(props.bill.id)); }
+function voidBill()      { if (confirm('Void this bill? A reversal journal entry will be created.')) router.post(bills.voidMethod.url(props.bill.id)); }
+function submitToZra()   { if (confirm('Submit this bill to ZRA as a purchase confirmation?')) router.post(bills.zraSubmit.url(props.bill.id)); }
 </script>
 
 <template>
@@ -44,6 +45,10 @@ function voidBill()    { if (confirm('Void this bill? A reversal journal entry w
                     <Button v-if="bill.status === 'draft'" @click="approveBill">
                         <CheckCircle2 class="mr-2 h-4 w-4" /> Approve
                     </Button>
+                    <Button v-if="['approved','partial','paid'].includes(bill.status) && !bill.zra_submitted_at"
+                        variant="outline" @click="submitToZra">
+                        <Send class="mr-2 h-4 w-4" /> Submit to ZRA
+                    </Button>
                     <Button v-if="!['void','paid'].includes(bill.status)" variant="destructive" @click="voidBill">
                         <XCircle class="mr-2 h-4 w-4" /> Void
                     </Button>
@@ -65,6 +70,14 @@ function voidBill()    { if (confirm('Void this bill? A reversal journal entry w
                             <p class="text-sm text-muted-foreground">Due: {{ new Date(bill.due_date).toLocaleDateString('en-ZM', { day:'numeric', month:'long', year:'numeric' }) }}</p>
                             <p v-if="bill.reference" class="text-sm text-muted-foreground">Ref: {{ bill.reference }}</p>
                         </div>
+                    </div>
+
+                    <!-- ZRA submission status -->
+                    <div v-if="bill.zra_submitted_at"
+                        class="flex items-center gap-2 rounded-md bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 px-4 py-2 text-sm text-green-700 dark:text-green-300">
+                        <CheckCircle2 class="h-4 w-4 shrink-0" />
+                        <span>Submitted to ZRA on {{ new Date(bill.zra_submitted_at).toLocaleDateString('en-ZM', { day:'numeric', month:'long', year:'numeric' }) }}</span>
+                        <span v-if="bill.zra_confirmation_no" class="font-mono font-semibold ml-1">· {{ bill.zra_confirmation_no }}</span>
                     </div>
 
                     <table class="w-full text-sm">

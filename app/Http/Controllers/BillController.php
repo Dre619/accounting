@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Bill;
+use App\Models\GoodsCode;
+use App\Models\ServiceCode;
 use App\Services\BillService;
+use App\Services\ZraVsdcService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -11,7 +14,10 @@ use Inertia\Response;
 
 class BillController extends Controller
 {
-    public function __construct(private readonly BillService $service) {}
+    public function __construct(
+        private readonly BillService $service,
+        private readonly ZraVsdcService $vsdc,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -64,6 +70,8 @@ class BillController extends Controller
             'contact',
             'items.taxRate',
             'items.account:id,name,code',
+            'items.goodsCode:id,name,hs_code',
+            'items.serviceCode:id,name,hs_code',
             'createdBy:id,name',
         ]);
 
@@ -119,6 +127,22 @@ class BillController extends Controller
         return view('bills.print', compact('bill', 'company'));
     }
 
+    public function submitZra(Request $request, Bill $bill): RedirectResponse
+    {
+        $this->authorise($request, $bill);
+        abort_unless(in_array($bill->status, ['approved', 'partial', 'paid']), 422, 'Only approved bills can be submitted to ZRA.');
+        abort_if((bool) $bill->zra_submitted_at, 422, 'This bill has already been submitted to ZRA.');
+
+        try {
+            $bill->load(['items.taxRate', 'items.goodsCode', 'items.serviceCode', 'contact', 'company']);
+            $this->vsdc->submitPurchase($bill);
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['zra' => $e->getMessage()]);
+        }
+
+        return back()->with('success', 'Bill submitted to ZRA successfully.');
+    }
+
     public function destroy(Request $request, Bill $bill): RedirectResponse
     {
         $this->authorise($request, $bill);
@@ -133,13 +157,16 @@ class BillController extends Controller
         $company = $request->user()->currentCompany;
 
         return [
-            'bill'      => null,
-            'contacts'  => $company->contacts()->suppliers()->active()
+            'bill'         => null,
+            'contacts'     => $company->contacts()->suppliers()->active()
                 ->orderBy('name')->get(['id', 'name', 'email', 'tpin']),
-            'accounts'  => $company->accounts()->active()->ofType('expense')
+            'accounts'     => $company->accounts()->active()->ofType('expense')
                 ->orderBy('code')->get(['id', 'code', 'name']),
-            'taxRates'  => $company->taxRates()->active()->vat()
+            'taxRates'     => $company->taxRates()->active()->vat()
                 ->orderBy('name')->get(['id', 'name', 'code', 'rate']),
+            'vsdcEnabled'  => (bool) $company->vsdc_initialized,
+            'goodsCodes'   => GoodsCode::orderBy('name')->get(['id', 'name', 'hs_code']),
+            'serviceCodes' => ServiceCode::orderBy('name')->get(['id', 'name', 'hs_code']),
         ];
     }
 
@@ -154,13 +181,15 @@ class BillController extends Controller
             'notes'           => ['nullable', 'string', 'max:2000'],
             'discount_amount' => ['nullable', 'numeric', 'min:0'],
             'items'                        => ['required', 'array', 'min:1'],
-            'items.*.id'                   => ['nullable', 'integer'],
-            'items.*.description'          => ['required', 'string', 'max:255'],
-            'items.*.account_id'           => ['nullable', 'integer'],
-            'items.*.tax_rate_id'          => ['nullable', 'integer'],
-            'items.*.quantity'             => ['required', 'numeric', 'min:0.001'],
-            'items.*.unit_price'           => ['required', 'numeric', 'min:0'],
-            'items.*.discount_percent'     => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'items.*.id'               => ['nullable', 'integer'],
+            'items.*.description'      => ['required', 'string', 'max:255'],
+            'items.*.account_id'       => ['nullable', 'integer'],
+            'items.*.tax_rate_id'      => ['nullable', 'integer'],
+            'items.*.quantity'         => ['required', 'numeric', 'min:0.001'],
+            'items.*.unit_price'       => ['required', 'numeric', 'min:0'],
+            'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'items.*.item_type'        => ['nullable', 'in:goods,service'],
+            'items.*.cls_code_id'      => ['nullable', 'integer'],
         ]);
     }
 

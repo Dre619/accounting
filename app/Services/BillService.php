@@ -116,6 +116,8 @@ class BillService
                 'tax_amount'       => $tax,
                 'total'            => $total,
                 'sort_order'       => $i,
+                'item_type'        => $itemData['item_type'] ?? 'service',
+                'cls_code_id'      => $itemData['cls_code_id'] ?? null,
             ];
 
             if (! empty($itemData['id']) && in_array($itemData['id'], $existing)) {

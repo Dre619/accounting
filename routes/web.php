@@ -78,6 +78,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::post('bills/{bill}/approve', [BillController::class, 'approve'])->name('bills.approve');
                 Route::post('bills/{bill}/void', [BillController::class, 'void'])->name('bills.void');
                 Route::get('bills/{bill}/print', [BillController::class, 'print'])->name('bills.print');
+                Route::post('bills/{bill}/zra-submit', [BillController::class, 'submitZra'])->name('bills.zra-submit');
             });
 
             Route::get('payments/open-documents', [PaymentController::class, 'openDocuments'])->name('payments.open-documents');
