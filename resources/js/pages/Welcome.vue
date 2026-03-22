@@ -216,6 +216,9 @@ const plans = [
                         <h3 class="text-xl font-extrabold mb-1" :style="plan.popular ? 'color:#fff' : 'color:#0f2044'">
                             {{ plan.name }}
                         </h3>
+                        <p :class="plan.popular
+                            ? 'text-white text-sm mb-2 mt-2'
+                            : 'text-sm mb-2 mt-2'">{{ plan.description }}</p>
                         <div class="flex items-baseline gap-1 mb-5">
                             <span class="text-sm" :style="plan.popular ? 'color:#93c5fd' : 'color:#6b7280'">ZMW</span>
                             <span class="text-4xl font-black" :style="plan.popular ? 'color:#fb923c' : 'color:#0f2044'">{{ plan.price }}</span>

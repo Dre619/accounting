@@ -53,8 +53,8 @@
       "_wayfinder-Vdt4tvc4.js"
     ]
   },
-  "_AppearanceTabs-D4x4_EW0.js": {
-    "file": "assets/AppearanceTabs-D4x4_EW0.js",
+  "_AppearanceTabs-C4ZxBLR_.js": {
+    "file": "assets/AppearanceTabs-C4ZxBLR_.js",
     "name": "AppearanceTabs",
     "imports": [
       "_index.esm-ZDB2fFVx.js",
@@ -551,7 +551,7 @@
     ]
   },
   "resources/js/app.ts": {
-    "file": "assets/app-BPqXH440.js",
+    "file": "assets/app-2j_3hFU8.js",
     "name": "app",
     "src": "resources/js/app.ts",
     "isEntry": true,
@@ -647,7 +647,7 @@
     ]
   },
   "resources/js/pages/Welcome.vue": {
-    "file": "assets/Welcome-C8_jDZvV.js",
+    "file": "assets/Welcome-BBg7TnnM.js",
     "name": "Welcome",
     "src": "resources/js/pages/Welcome.vue",
     "isDynamicEntry": true,
@@ -790,7 +790,7 @@
     ]
   },
   "resources/js/pages/admin/settings/Appearance.vue": {
-    "file": "assets/Appearance-DpYrrNd-.js",
+    "file": "assets/Appearance-CS-C9fCZ.js",
     "name": "Appearance",
     "src": "resources/js/pages/admin/settings/Appearance.vue",
     "isDynamicEntry": true,
@@ -799,7 +799,7 @@
       "_AppSidebarHeader-CgSJWmz1.js",
       "_button-Qw0RmAwI.js",
       "_AdminLayout-CNmC56je.js",
-      "_AppearanceTabs-D4x4_EW0.js",
+      "_AppearanceTabs-C4ZxBLR_.js",
       "_useCurrentUrl-Bh7vudR0.js",
       "_AdminSettingsLayout-CQ8UbOep.js",
       "_routes-KXpTePSp.js"
@@ -1745,7 +1745,7 @@
     ]
   },
   "resources/js/pages/settings/Appearance.vue": {
-    "file": "assets/Appearance-DSbxwDAO.js",
+    "file": "assets/Appearance-B_pDi5DL.js",
     "name": "Appearance",
     "src": "resources/js/pages/settings/Appearance.vue",
     "isDynamicEntry": true,
@@ -1754,7 +1754,7 @@
       "_AppSidebarHeader-CgSJWmz1.js",
       "_button-Qw0RmAwI.js",
       "_AppLayout-CsFaCbn5.js",
-      "_AppearanceTabs-D4x4_EW0.js",
+      "_AppearanceTabs-C4ZxBLR_.js",
       "_Layout-BBt8Q94U.js",
       "_useCurrentUrl-Bh7vudR0.js",
       "_routes-KXpTePSp.js"
@@ -1807,7 +1807,7 @@
     ]
   },
   "resources/js/pages/settings/Security.vue": {
-    "file": "assets/Security-BZ6PIshm.js",
+    "file": "assets/Security-UYqlEI8q.js",
     "name": "Security",
     "src": "resources/js/pages/settings/Security.vue",
     "isDynamicEntry": true,

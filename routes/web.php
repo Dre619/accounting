@@ -34,7 +34,8 @@ foreach($subscriptionPlans as $plan)
             'name' => $plan->name,
             'popular' => $plan->sort_order == 2,
             'price' => $plan->price_monthly,
-            'features' => $plan->features
+            'features' => $plan->features,
+            'description' => $plan->description
         ];
     }
 
