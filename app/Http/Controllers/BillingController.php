@@ -43,10 +43,20 @@ class BillingController extends Controller
         $cycle = $request->query('cycle', 'monthly');
 
         return Inertia::render('billing/Checkout', [
-            'plan'       => $plan,
-            'cycle'      => $cycle,
-            'amount'     => $cycle === 'annual' ? $plan->price_annual : $plan->price_monthly,
+            'plan'        => $plan,
+            'cycle'       => $cycle,
+            'amount'      => $cycle === 'annual' ? $plan->price_annual : $plan->price_monthly,
             'lencoPubKey' => config('lenco.public_key'),
+            'banking'     => [
+                'bank_name'      => config('banking.bank_name'),
+                'account_name'   => config('banking.account_name'),
+                'account_number' => config('banking.account_number'),
+                'branch'         => config('banking.branch'),
+                'swift_code'     => config('banking.swift_code'),
+                'sort_code'      => config('banking.sort_code'),
+                'mobile_money'   => config('banking.mobile_money'),
+                'instructions'   => config('banking.instructions'),
+            ],
         ]);
     }
 

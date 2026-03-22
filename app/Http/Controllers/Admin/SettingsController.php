@@ -49,37 +49,63 @@ class SettingsController extends Controller
                 'from_address' => config('mail.from.address'),
                 'from_name'    => config('mail.from.name'),
             ],
+            'banking' => [
+                'bank_name'      => config('banking.bank_name'),
+                'account_name'   => config('banking.account_name'),
+                'account_number' => config('banking.account_number'),
+                'branch'         => config('banking.branch'),
+                'swift_code'     => config('banking.swift_code'),
+                'sort_code'      => config('banking.sort_code'),
+                'mobile_money'   => config('banking.mobile_money'),
+                'instructions'   => config('banking.instructions'),
+            ],
         ]);
     }
 
     public function updatePlatform(Request $request)
     {
         $data = $request->validate([
-            'lenco_public_key'  => 'nullable|string|max:200',
-            'lenco_secret_key'  => 'nullable|string|max:200',
-            'lenco_base_url'    => 'nullable|url|max:200',
-            'mail_mailer'       => 'nullable|string|max:50',
-            'mail_host'         => 'nullable|string|max:200',
-            'mail_port'         => 'nullable|integer',
-            'mail_username'     => 'nullable|string|max:200',
-            'mail_password'     => 'nullable|string|max:200',
-            'mail_from_address' => 'nullable|email|max:200',
-            'mail_from_name'    => 'nullable|string|max:200',
+            'lenco_public_key'   => 'nullable|string|max:200',
+            'lenco_secret_key'   => 'nullable|string|max:200',
+            'lenco_base_url'     => 'nullable|url|max:200',
+            'mail_mailer'        => 'nullable|string|max:50',
+            'mail_host'          => 'nullable|string|max:200',
+            'mail_port'          => 'nullable|integer',
+            'mail_username'      => 'nullable|string|max:200',
+            'mail_password'      => 'nullable|string|max:200',
+            'mail_from_address'  => 'nullable|email|max:200',
+            'mail_from_name'     => 'nullable|string|max:200',
+            'bank_name'          => 'nullable|string|max:200',
+            'bank_account_name'  => 'nullable|string|max:200',
+            'bank_account_number'=> 'nullable|string|max:100',
+            'bank_branch'        => 'nullable|string|max:200',
+            'bank_swift_code'    => 'nullable|string|max:50',
+            'bank_sort_code'     => 'nullable|string|max:50',
+            'bank_mobile_money'  => 'nullable|string|max:200',
+            'bank_instructions'  => 'nullable|string|max:500',
         ]);
 
         $env = base_path('.env');
         $content = file_get_contents($env);
 
         $map = [
-            'LENCO_PUBLIC_KEY'  => $data['lenco_public_key']  ?? '',
-            'LENCO_SECRET_KEY'  => $data['lenco_secret_key']  ?? '',
-            'LENCO_BASE_URL'    => $data['lenco_base_url']    ?? 'https://api.lenco.co/access/v1',
-            'MAIL_MAILER'       => $data['mail_mailer']       ?? 'log',
-            'MAIL_HOST'         => $data['mail_host']         ?? '',
-            'MAIL_PORT'         => $data['mail_port']         ?? 587,
-            'MAIL_USERNAME'     => $data['mail_username']     ?? '',
-            'MAIL_FROM_ADDRESS' => $data['mail_from_address'] ?? '',
-            'MAIL_FROM_NAME'    => '"' . ($data['mail_from_name'] ?? '') . '"',
+            'LENCO_PUBLIC_KEY'   => $data['lenco_public_key']    ?? '',
+            'LENCO_SECRET_KEY'   => $data['lenco_secret_key']    ?? '',
+            'LENCO_BASE_URL'     => $data['lenco_base_url']      ?? 'https://api.lenco.co/access/v1',
+            'MAIL_MAILER'        => $data['mail_mailer']         ?? 'log',
+            'MAIL_HOST'          => $data['mail_host']           ?? '',
+            'MAIL_PORT'          => $data['mail_port']           ?? 587,
+            'MAIL_USERNAME'      => $data['mail_username']       ?? '',
+            'MAIL_FROM_ADDRESS'  => $data['mail_from_address']   ?? '',
+            'MAIL_FROM_NAME'     => '"' . ($data['mail_from_name'] ?? '') . '"',
+            'BANK_NAME'          => '"' . ($data['bank_name']          ?? '') . '"',
+            'BANK_ACCOUNT_NAME'  => '"' . ($data['bank_account_name']  ?? '') . '"',
+            'BANK_ACCOUNT_NUMBER'=> $data['bank_account_number'] ?? '',
+            'BANK_BRANCH'        => '"' . ($data['bank_branch']        ?? '') . '"',
+            'BANK_SWIFT_CODE'    => $data['bank_swift_code']     ?? '',
+            'BANK_SORT_CODE'     => $data['bank_sort_code']      ?? '',
+            'BANK_MOBILE_MONEY'  => '"' . ($data['bank_mobile_money']  ?? '') . '"',
+            'BANK_INSTRUCTIONS'  => '"' . ($data['bank_instructions']  ?? 'Use your company name as the payment reference.') . '"',
         ];
 
         foreach ($map as $key => $value) {

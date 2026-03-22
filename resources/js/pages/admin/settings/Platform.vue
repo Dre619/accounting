@@ -8,21 +8,30 @@ import InputError from '@/components/InputError.vue';
 import AdminSettingsLayout from '@/layouts/admin/AdminSettingsLayout.vue';
 
 const props = defineProps<{
-    lenco: { public_key: string; secret_key: string; base_url: string };
-    mail:  { mailer: string; host: string; port: number; username: string; from_address: string; from_name: string };
+    lenco:   { public_key: string; secret_key: string; base_url: string };
+    mail:    { mailer: string; host: string; port: number; username: string; from_address: string; from_name: string };
+    banking: { bank_name: string; account_name: string; account_number: string; branch: string; swift_code: string; sort_code: string; mobile_money: string; instructions: string };
 }>();
 
 const form = useForm({
-    lenco_public_key:  props.lenco.public_key,
-    lenco_secret_key:  props.lenco.secret_key,
-    lenco_base_url:    props.lenco.base_url,
-    mail_mailer:       props.mail.mailer,
-    mail_host:         props.mail.host,
-    mail_port:         props.mail.port,
-    mail_username:     props.mail.username,
-    mail_password:     '',
-    mail_from_address: props.mail.from_address,
-    mail_from_name:    props.mail.from_name,
+    lenco_public_key:    props.lenco.public_key,
+    lenco_secret_key:    props.lenco.secret_key,
+    lenco_base_url:      props.lenco.base_url,
+    mail_mailer:         props.mail.mailer,
+    mail_host:           props.mail.host,
+    mail_port:           props.mail.port,
+    mail_username:       props.mail.username,
+    mail_password:       '',
+    mail_from_address:   props.mail.from_address,
+    mail_from_name:      props.mail.from_name,
+    bank_name:           props.banking.bank_name,
+    bank_account_name:   props.banking.account_name,
+    bank_account_number: props.banking.account_number,
+    bank_branch:         props.banking.branch,
+    bank_swift_code:     props.banking.swift_code,
+    bank_sort_code:      props.banking.sort_code,
+    bank_mobile_money:   props.banking.mobile_money,
+    bank_instructions:   props.banking.instructions,
 });
 
 function submit() {
@@ -105,6 +114,59 @@ function submit() {
                         <Label for="mail_from_name">From Name</Label>
                         <Input id="mail_from_name" v-model="form.mail_from_name" placeholder="CloudOne Accounting" />
                         <InputError :message="form.errors.mail_from_name" />
+                    </div>
+                </div>
+            </div>
+
+            <Separator />
+
+            <!-- Banking / Offline Payment Details -->
+            <div class="space-y-4">
+                <div>
+                    <p class="font-semibold text-sm">Offline Payment Details</p>
+                    <p class="text-xs text-muted-foreground mt-0.5">Shown to customers who choose bank transfer or mobile money on the checkout page.</p>
+                </div>
+
+                <div class="grid sm:grid-cols-2 gap-3">
+                    <div class="grid gap-1.5">
+                        <Label for="bank_name">Bank Name</Label>
+                        <Input id="bank_name" v-model="form.bank_name" placeholder="e.g. Zanaco Bank" />
+                        <InputError :message="form.errors.bank_name" />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label for="bank_account_name">Account Name</Label>
+                        <Input id="bank_account_name" v-model="form.bank_account_name" placeholder="e.g. CloudOne Technologies Ltd" />
+                        <InputError :message="form.errors.bank_account_name" />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label for="bank_account_number">Account Number</Label>
+                        <Input id="bank_account_number" v-model="form.bank_account_number" placeholder="e.g. 1234567890" />
+                        <InputError :message="form.errors.bank_account_number" />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label for="bank_branch">Branch</Label>
+                        <Input id="bank_branch" v-model="form.bank_branch" placeholder="e.g. Cairo Road, Lusaka" />
+                        <InputError :message="form.errors.bank_branch" />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label for="bank_swift_code">SWIFT / BIC Code <span class="text-muted-foreground">(optional)</span></Label>
+                        <Input id="bank_swift_code" v-model="form.bank_swift_code" placeholder="e.g. ZNCOZMLU" />
+                        <InputError :message="form.errors.bank_swift_code" />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label for="bank_sort_code">Sort Code <span class="text-muted-foreground">(optional)</span></Label>
+                        <Input id="bank_sort_code" v-model="form.bank_sort_code" placeholder="e.g. 12-34-56" />
+                        <InputError :message="form.errors.bank_sort_code" />
+                    </div>
+                    <div class="grid gap-1.5 sm:col-span-2">
+                        <Label for="bank_mobile_money">Mobile Money Number <span class="text-muted-foreground">(optional)</span></Label>
+                        <Input id="bank_mobile_money" v-model="form.bank_mobile_money" placeholder="e.g. Airtel +260 97 1234567" />
+                        <InputError :message="form.errors.bank_mobile_money" />
+                    </div>
+                    <div class="grid gap-1.5 sm:col-span-2">
+                        <Label for="bank_instructions">Payment Instructions</Label>
+                        <Input id="bank_instructions" v-model="form.bank_instructions" placeholder="Use your company name as the payment reference." />
+                        <InputError :message="form.errors.bank_instructions" />
                     </div>
                 </div>
             </div>

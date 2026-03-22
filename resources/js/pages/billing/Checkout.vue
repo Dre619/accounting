@@ -35,11 +35,23 @@ interface Plan {
     features: string[];
 }
 
+interface BankingDetails {
+    bank_name: string;
+    account_name: string;
+    account_number: string;
+    branch: string;
+    swift_code: string;
+    sort_code: string;
+    mobile_money: string;
+    instructions: string;
+}
+
 const props = defineProps<{
     plan: Plan;
     cycle: 'monthly' | 'annual';
     amount: string | number;
     lencoPubKey: string;
+    banking: BankingDetails;
 }>();
 
 const page = usePage();
@@ -199,19 +211,39 @@ function formatZmw(value: string | number) {
                             <div class="rounded-lg bg-muted/50 p-4 text-sm space-y-1">
                                 <p class="font-semibold mb-2">Payment Details</p>
                                 <div class="grid grid-cols-2 gap-y-1">
-                                    <span class="text-muted-foreground">Bank</span>
-                                    <span>Zanaco Bank</span>
-                                    <span class="text-muted-foreground">Account Name</span>
-                                    <span>CloudOne Technologies Ltd</span>
-                                    <span class="text-muted-foreground">Account No.</span>
-                                    <span>1234567890</span>
-                                    <span class="text-muted-foreground">Branch</span>
-                                    <span>Cairo Road, Lusaka</span>
+                                    <template v-if="banking.bank_name">
+                                        <span class="text-muted-foreground">Bank</span>
+                                        <span>{{ banking.bank_name }}</span>
+                                    </template>
+                                    <template v-if="banking.account_name">
+                                        <span class="text-muted-foreground">Account Name</span>
+                                        <span>{{ banking.account_name }}</span>
+                                    </template>
+                                    <template v-if="banking.account_number">
+                                        <span class="text-muted-foreground">Account No.</span>
+                                        <span>{{ banking.account_number }}</span>
+                                    </template>
+                                    <template v-if="banking.branch">
+                                        <span class="text-muted-foreground">Branch</span>
+                                        <span>{{ banking.branch }}</span>
+                                    </template>
+                                    <template v-if="banking.swift_code">
+                                        <span class="text-muted-foreground">SWIFT / BIC</span>
+                                        <span>{{ banking.swift_code }}</span>
+                                    </template>
+                                    <template v-if="banking.sort_code">
+                                        <span class="text-muted-foreground">Sort Code</span>
+                                        <span>{{ banking.sort_code }}</span>
+                                    </template>
+                                    <template v-if="banking.mobile_money">
+                                        <span class="text-muted-foreground">Mobile Money</span>
+                                        <span>{{ banking.mobile_money }}</span>
+                                    </template>
                                     <span class="text-muted-foreground">Amount</span>
                                     <span class="font-semibold">{{ formatZmw(amount) }}</span>
                                 </div>
-                                <p class="mt-3 text-xs text-muted-foreground">
-                                    Use your company name as the payment reference.
+                                <p v-if="banking.instructions" class="mt-3 text-xs text-muted-foreground">
+                                    {{ banking.instructions }}
                                 </p>
                             </div>
 

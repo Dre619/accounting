@@ -53,8 +53,8 @@
       "_wayfinder-CkBpLPIt.js"
     ]
   },
-  "_AppearanceTabs-ByQksR18.js": {
-    "file": "assets/AppearanceTabs-ByQksR18.js",
+  "_AppearanceTabs-Cfvks8jY.js": {
+    "file": "assets/AppearanceTabs-Cfvks8jY.js",
     "name": "AppearanceTabs",
     "imports": [
       "_index.esm-ZDB2fFVx.js",
@@ -544,7 +544,7 @@
     ]
   },
   "resources/js/app.ts": {
-    "file": "assets/app-nb9VHQ5M.js",
+    "file": "assets/app-BnzenEVQ.js",
     "name": "app",
     "src": "resources/js/app.ts",
     "isEntry": true,
@@ -782,7 +782,7 @@
     ]
   },
   "resources/js/pages/admin/settings/Appearance.vue": {
-    "file": "assets/Appearance-Cwc4C-vU.js",
+    "file": "assets/Appearance-6AoEzlC0.js",
     "name": "Appearance",
     "src": "resources/js/pages/admin/settings/Appearance.vue",
     "isDynamicEntry": true,
@@ -791,7 +791,7 @@
       "_AppSidebarHeader-D0UpgRkA.js",
       "_button-Ck7g96O5.js",
       "_AdminLayout-sAKHlHKF.js",
-      "_AppearanceTabs-ByQksR18.js",
+      "_AppearanceTabs-Cfvks8jY.js",
       "_useCurrentUrl-cxgFpXWr.js",
       "_AdminSettingsLayout-Gi-BTJLi.js",
       "_routes-BqmJr05w.js"
@@ -822,7 +822,7 @@
     ]
   },
   "resources/js/pages/admin/settings/Platform.vue": {
-    "file": "assets/Platform-BdqJFRcC.js",
+    "file": "assets/Platform-BJpL4as0.js",
     "name": "Platform",
     "src": "resources/js/pages/admin/settings/Platform.vue",
     "isDynamicEntry": true,
@@ -1032,7 +1032,7 @@
     ]
   },
   "resources/js/pages/billing/Checkout.vue": {
-    "file": "assets/Checkout-ILHXsFhp.js",
+    "file": "assets/Checkout-gS9P9sUf.js",
     "name": "Checkout",
     "src": "resources/js/pages/billing/Checkout.vue",
     "isDynamicEntry": true,
@@ -1716,7 +1716,7 @@
     ]
   },
   "resources/js/pages/settings/Appearance.vue": {
-    "file": "assets/Appearance-akASNzGA.js",
+    "file": "assets/Appearance-D1rmmGNT.js",
     "name": "Appearance",
     "src": "resources/js/pages/settings/Appearance.vue",
     "isDynamicEntry": true,
@@ -1725,7 +1725,7 @@
       "_AppSidebarHeader-D0UpgRkA.js",
       "_button-Ck7g96O5.js",
       "_AppLayout-CtsbsYfG.js",
-      "_AppearanceTabs-ByQksR18.js",
+      "_AppearanceTabs-Cfvks8jY.js",
       "_Layout-U8elMO7p.js",
       "_useCurrentUrl-cxgFpXWr.js",
       "_routes-BqmJr05w.js"
@@ -1778,7 +1778,7 @@
     ]
   },
   "resources/js/pages/settings/Security.vue": {
-    "file": "assets/Security-BivUIzCx.js",
+    "file": "assets/Security-DSDfBEN2.js",
     "name": "Security",
     "src": "resources/js/pages/settings/Security.vue",
     "isDynamicEntry": true,
