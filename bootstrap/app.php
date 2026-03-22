@@ -27,6 +27,29 @@ return Application::configure(basePath: dirname(__DIR__))
             'plan.feature' => EnsurePlanFeature::class,
         ]);
     })
+    ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
+        // Process recurring invoices every day at 06:00
+        $schedule->command('invoices:process-recurring')
+            ->dailyAt('06:00')
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // Expire overdue subscriptions every day at 00:05
+        $schedule->command('subscriptions:expire')
+            ->dailyAt('00:05')
+            ->withoutOverlapping();
+
+        // Log expired trials every day at 00:10
+        $schedule->command('trials:expire')
+            ->dailyAt('00:10')
+            ->withoutOverlapping();
+
+        // Log overdue invoice reminders every weekday morning at 08:00
+        $schedule->command('invoices:overdue-reminders')
+            ->weekdays()
+            ->at('08:00')
+            ->withoutOverlapping();
+    })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();

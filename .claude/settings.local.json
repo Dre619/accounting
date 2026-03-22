@@ -9,7 +9,9 @@
       "Bash(find d:/CloudOne/accounting -name ziggy* -not -path */node_modules/* -not -path */.git/*)",
       "Bash(find d:/CloudOne/accounting/node_modules -name ziggy* -maxdepth 3)",
       "Bash(xargs ls:*)",
-      "Bash(grep -v \"//.*route\\(\")"
+      "Bash(grep -v \"//.*route\\(\")",
+      "Bash(xargs -I {} basename {})",
+      "Bash(wc -l \"D:/CloudOne/accounting/database/migrations\"/*.php)"
     ]
   }
 }
