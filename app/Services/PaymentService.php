@@ -11,9 +11,12 @@ use App\Models\JournalLine;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
 use Illuminate\Support\Facades\DB;
+use App\Services\InvoiceService;
 
 class PaymentService
 {
+    public function __construct(private readonly InvoiceService $invoiceService) {}
+
     public function record(Company $company, array $data): Payment
     {
         return DB::transaction(function () use ($company, $data) {
@@ -36,6 +39,14 @@ class PaymentService
             foreach ($data['allocations'] ?? [] as $alloc) {
                 if (empty($alloc['amount']) || $alloc['amount'] <= 0) {
                     continue;
+                }
+
+                // Ensure invoice has its AR journal posted before we credit AR in the payment journal
+                if ($alloc['type'] === 'invoice') {
+                    $inv = Invoice::find($alloc['id']);
+                    if ($inv) {
+                        $this->invoiceService->ensureJournalEntry($inv);
+                    }
                 }
 
                 PaymentAllocation::create([
@@ -75,6 +86,14 @@ class PaymentService
 
                 if ($amount <= 0) {
                     break;
+                }
+
+                // Ensure invoice has its AR journal before we move Customer Deposits → AR
+                if ($alloc['type'] === 'invoice') {
+                    $inv = Invoice::find($alloc['id']);
+                    if ($inv) {
+                        $this->invoiceService->ensureJournalEntry($inv);
+                    }
                 }
 
                 PaymentAllocation::create([

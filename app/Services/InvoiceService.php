@@ -150,6 +150,13 @@ class InvoiceService
         }
     }
 
+    public function ensureJournalEntry(Invoice $invoice): void
+    {
+        if ($invoice->journalEntries()->where('source', 'invoice')->doesntExist()) {
+            $this->createJournalEntry($invoice);
+        }
+    }
+
     private function createJournalEntry(Invoice $invoice): void
     {
         $company = $invoice->company;
