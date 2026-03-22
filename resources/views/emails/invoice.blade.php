@@ -21,7 +21,7 @@ Please find attached invoice **{{ $invoice->invoice_number }}** from **{{ $compa
 
 **Total: ZMW {{ number_format($invoice->total, 2) }}**
 
-@if(Number($invoice->amount_due) > 0)
+@if(( (float) $invoice->amount_due) > 0)
 **Amount Due: ZMW {{ number_format($invoice->amount_due, 2) }}**
 @endif
 
