@@ -44,7 +44,7 @@ class PaymentsController extends Controller
             ->whereIn('status', ['active', 'trialing'])
             ->update(['status' => 'expired']);
 
-        $months = $payment->billing_cycle === 'annual' ? 12 : 1;
+        $months = $payment->months ?: ($payment->billing_cycle === 'annual' ? 12 : 1);
 
         $subscription = Subscription::create([
             'company_id'    => $payment->company_id,

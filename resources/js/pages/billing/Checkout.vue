@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm, usePage } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { CreditCard, Upload } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,23 +56,65 @@ const props = defineProps<{
 
 const page = usePage();
 
+// ── Billing selection (cycle + months) ───────────────────────────────────────
+const selectedCycle  = ref<'monthly' | 'annual'>(props.cycle);
+const selectedMonths = ref<number>(props.cycle === 'annual' ? 12 : 1)
+
+// When switching to annual, lock months to 12; when switching to monthly reset to 1
+watch(selectedCycle, (cycle) => {
+    selectedMonths.value = cycle === 'annual' ? 12 : 1;
+});
+
+const monthlyPrice = computed(() => Number(props.plan.price_monthly));
+const annualPrice  = computed(() => Number(props.plan.price_annual));
+
+// Price per month displayed in the monthly selector
+const pricePerMonth = computed(() => monthlyPrice.value);
+
+// Total amount to charge
+const totalAmount = computed(() => {
+    if (selectedCycle.value === 'annual') return annualPrice.value;
+    return Math.round(monthlyPrice.value * selectedMonths.value * 100) / 100;
+});
+
+// Savings vs paying monthly
+const annualSaving = computed(() =>
+    Math.round((monthlyPrice.value * 12 - annualPrice.value) * 100) / 100
+);
+
+// Label for the order summary
+const periodLabel = computed(() => {
+    if (selectedCycle.value === 'annual') return '12 months (annual)';
+    return selectedMonths.value === 1 ? '1 month' : `${selectedMonths.value} months`;
+});
+
+// ── Forms ────────────────────────────────────────────────────────────────────
 const activeTab   = ref<'online' | 'offline'>('online');
 const lencoStatus = ref<'idle' | 'processing' | 'success' | 'error'>('idle');
 
-// Online payment form (just stores the Lenco reference after success)
 const onlineForm = useForm({
     plan_id:   props.plan.id,
-    cycle:     props.cycle,
+    cycle:     selectedCycle.value,
+    months:    selectedMonths.value,
     reference: '',
-    amount:    Number(props.amount),
+    amount:    totalAmount.value,
 });
 
-// Offline payment form
 const offlineForm = useForm({
     plan_id: props.plan.id,
-    cycle:   props.cycle,
+    cycle:   selectedCycle.value,
+    months:  selectedMonths.value,
     proof:   null as File | null,
     notes:   '',
+});
+
+// Keep forms in sync with selection
+watch([selectedCycle, selectedMonths, totalAmount], () => {
+    onlineForm.cycle  = selectedCycle.value;
+    onlineForm.months = selectedMonths.value;
+    onlineForm.amount = totalAmount.value;
+    offlineForm.cycle  = selectedCycle.value;
+    offlineForm.months = selectedMonths.value;
 });
 
 const proofFileName = ref('');
@@ -93,7 +135,7 @@ function launchLenco() {
         key:       props.lencoPubKey,
         reference: 'CLO-' + Date.now(),
         email:     user.email,
-        amount:    Number(props.amount), // Lenco expects amount in ngwe/cents
+        amount:    totalAmount.value,
         currency:  'ZMW',
         channels:  ['card', 'mobile-money'],
         customer:  {
@@ -102,8 +144,9 @@ function launchLenco() {
             phone:     '',
         },
         onSuccess(response) {
-            lencoStatus.value       = 'success';
-            onlineForm.reference    = response.reference;
+            lencoStatus.value    = 'success';
+            onlineForm.reference = response.reference;
+            onlineForm.amount    = totalAmount.value;
             onlineForm.post(billing.verifyOnline.url());
         },
         onClose() {
@@ -117,9 +160,7 @@ function launchLenco() {
 }
 
 function submitOffline() {
-    offlineForm.post(billing.uploadProof.url(), {
-        forceFormData: true,
-    });
+    offlineForm.post(billing.uploadProof.url(), { forceFormData: true });
 }
 
 function formatZmw(value: string | number) {
@@ -129,30 +170,104 @@ function formatZmw(value: string | number) {
 
 <template>
     <Head :title="`Subscribe — ${plan.name}`" />
-
-    <!-- Load Lenco inline script -->
     <component :is="'script'" src="https://pay.lenco.co/js/v1/inline.js" async />
 
     <AppLayout>
-        <div class="mx-auto max-w-lg px-4 py-10">
+        <div class="mx-auto max-w-lg px-4 py-10 space-y-6">
 
-            <!-- Order summary -->
-            <Card class="mb-6">
+            <!-- ── Billing cycle selector ─────────────────────────────────── -->
+            <Card>
                 <CardHeader>
-                    <CardTitle>Order Summary</CardTitle>
+                    <CardTitle class="text-base">{{ plan.name }} — Choose Billing Period</CardTitle>
+                </CardHeader>
+                <CardContent class="space-y-4">
+
+                    <!-- Cycle toggle -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <button
+                            type="button"
+                            :class="[
+                                'rounded-lg border-2 p-3 text-sm font-medium transition-colors text-left',
+                                selectedCycle === 'monthly'
+                                    ? 'border-primary bg-primary/5 text-primary'
+                                    : 'border-border text-muted-foreground hover:border-primary/50',
+                            ]"
+                            @click="selectedCycle = 'monthly'"
+                        >
+                            <span class="block font-semibold">Monthly</span>
+                            <span class="text-xs opacity-75">{{ formatZmw(monthlyPrice) }} / month</span>
+                        </button>
+                        <button
+                            type="button"
+                            :class="[
+                                'rounded-lg border-2 p-3 text-sm font-medium transition-colors text-left relative',
+                                selectedCycle === 'annual'
+                                    ? 'border-primary bg-primary/5 text-primary'
+                                    : 'border-border text-muted-foreground hover:border-primary/50',
+                            ]"
+                            @click="selectedCycle = 'annual'"
+                        >
+                            <span class="absolute -top-2.5 right-2 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                                SAVE {{ formatZmw(annualSaving) }}
+                            </span>
+                            <span class="block font-semibold">Annual</span>
+                            <span class="text-xs opacity-75">{{ formatZmw(annualPrice) }} / year</span>
+                        </button>
+                    </div>
+
+                    <!-- Monthly: number of months picker -->
+                    <div v-if="selectedCycle === 'monthly'" class="space-y-2">
+                        <Label>Number of Months</Label>
+                        <div class="grid grid-cols-6 gap-2">
+                            <button
+                                v-for="m in 12"
+                                :key="m"
+                                type="button"
+                                :class="[
+                                    'rounded-lg border py-2 text-sm font-medium transition-colors',
+                                    selectedMonths === m
+                                        ? 'border-primary bg-primary text-primary-foreground'
+                                        : 'border-border hover:border-primary/50 text-muted-foreground',
+                                ]"
+                                @click="selectedMonths = m"
+                            >
+                                {{ m }}
+                            </button>
+                        </div>
+                        <p class="text-xs text-muted-foreground">
+                            {{ selectedMonths }} month{{ selectedMonths > 1 ? 's' : '' }} ×
+                            {{ formatZmw(monthlyPrice) }} = <strong>{{ formatZmw(totalAmount) }}</strong>
+                        </p>
+                    </div>
+
+                    <!-- Annual summary -->
+                    <div v-else class="rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 px-4 py-3 text-sm text-green-800 dark:text-green-200">
+                        12 months access · You save {{ formatZmw(annualSaving) }} compared to paying monthly.
+                    </div>
+                </CardContent>
+            </Card>
+
+            <!-- ── Order summary ─────────────────────────────────────────── -->
+            <Card>
+                <CardHeader>
+                    <CardTitle class="text-base">Order Summary</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div class="flex items-center justify-between text-sm">
-                        <span class="text-muted-foreground">{{ plan.name }} — {{ cycle === 'annual' ? 'Annual' : 'Monthly' }}</span>
-                        <span class="font-semibold text-base">{{ formatZmw(amount) }}</span>
+                        <span class="text-muted-foreground">{{ plan.name }} — {{ periodLabel }}</span>
+                        <span class="font-bold text-lg">{{ formatZmw(totalAmount) }}</span>
                     </div>
                     <p class="text-xs text-muted-foreground mt-1">
-                        {{ cycle === 'annual' ? '12 months access' : '1 month access' }}
+                        Access until {{ (() => {
+                            const d = new Date();
+                            d.setMonth(d.getMonth() + (selectedCycle === 'annual' ? 12 : selectedMonths));
+                            return d.toLocaleDateString('en-ZM', { day: 'numeric', month: 'long', year: 'numeric' });
+                        })() }}
                     </p>
                 </CardContent>
             </Card>
 
-            <!-- Payment method tabs -->
+            <!-- ── Payment method tabs ────────────────────────────────────── -->
             <Tabs v-model="activeTab">
                 <TabsList class="w-full">
                     <TabsTrigger value="online" class="flex-1">
@@ -163,32 +278,24 @@ function formatZmw(value: string | number) {
                     </TabsTrigger>
                 </TabsList>
 
-                <!-- ── Online (Lenco) ─────────────────────────────────────── -->
+                <!-- Online (Lenco) -->
                 <TabsContent value="online">
                     <Card>
                         <CardHeader>
                             <CardTitle class="text-base">Pay with Lenco</CardTitle>
-                            <CardDescription>
-                                Card or mobile money (Airtel Money, MTN, Zamtel). Instant activation.
-                            </CardDescription>
+                            <CardDescription>Card or mobile money (Airtel Money, MTN, Zamtel). Instant activation.</CardDescription>
                         </CardHeader>
                         <CardContent class="space-y-4">
                             <InputError :message="onlineForm.errors.reference" />
-
                             <Button
                                 class="w-full"
                                 size="lg"
                                 :disabled="lencoStatus === 'processing' || onlineForm.processing"
                                 @click="launchLenco"
                             >
-                                <span v-if="lencoStatus === 'processing' || onlineForm.processing">
-                                    Processing…
-                                </span>
-                                <span v-else>
-                                    Pay {{ formatZmw(amount) }} Now
-                                </span>
+                                <span v-if="lencoStatus === 'processing' || onlineForm.processing">Processing…</span>
+                                <span v-else>Pay {{ formatZmw(totalAmount) }} Now</span>
                             </Button>
-
                             <p class="text-center text-xs text-muted-foreground">
                                 Secured by Lenco &mdash; your payment is encrypted
                             </p>
@@ -196,15 +303,12 @@ function formatZmw(value: string | number) {
                     </Card>
                 </TabsContent>
 
-                <!-- ── Offline (upload proof) ─────────────────────────────── -->
+                <!-- Offline (upload proof) -->
                 <TabsContent value="offline">
                     <Card>
                         <CardHeader>
                             <CardTitle class="text-base">Bank / Mobile Money Transfer</CardTitle>
-                            <CardDescription>
-                                Transfer to our account then upload your proof of payment.
-                                Activation within 24 hours.
-                            </CardDescription>
+                            <CardDescription>Transfer to our account then upload your proof of payment. Activation within 24 hours.</CardDescription>
                         </CardHeader>
                         <CardContent class="space-y-4">
                             <!-- Bank details -->
@@ -239,8 +343,8 @@ function formatZmw(value: string | number) {
                                         <span class="text-muted-foreground">Mobile Money</span>
                                         <span>{{ banking.mobile_money }}</span>
                                     </template>
-                                    <span class="text-muted-foreground">Amount</span>
-                                    <span class="font-semibold">{{ formatZmw(amount) }}</span>
+                                    <span class="text-muted-foreground font-medium">Amount to Transfer</span>
+                                    <span class="font-bold text-primary">{{ formatZmw(totalAmount) }}</span>
                                 </div>
                                 <p v-if="banking.instructions" class="mt-3 text-xs text-muted-foreground">
                                     {{ banking.instructions }}
@@ -256,19 +360,9 @@ function formatZmw(value: string | number) {
                                         class="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-input py-8 hover:border-primary transition-colors"
                                     >
                                         <Upload class="mb-2 h-6 w-6 text-muted-foreground" />
-                                        <span class="text-sm font-medium">
-                                            {{ proofFileName || 'Click to upload' }}
-                                        </span>
-                                        <span class="text-xs text-muted-foreground mt-1">
-                                            JPG, PNG or PDF — max 4 MB
-                                        </span>
-                                        <input
-                                            id="proof"
-                                            type="file"
-                                            accept=".jpg,.jpeg,.png,.pdf"
-                                            class="sr-only"
-                                            @change="handleFileChange"
-                                        />
+                                        <span class="text-sm font-medium">{{ proofFileName || 'Click to upload' }}</span>
+                                        <span class="text-xs text-muted-foreground mt-1">JPG, PNG or PDF — max 4 MB</span>
+                                        <input id="proof" type="file" accept=".jpg,.jpeg,.png,.pdf" class="sr-only" @change="handleFileChange" />
                                     </label>
                                     <InputError :message="offlineForm.errors.proof" />
                                 </div>

@@ -67,6 +67,7 @@ class BillingController extends Controller
         $validated = $request->validate([
             'plan_id'   => ['required', 'exists:subscription_plans,id'],
             'cycle'     => ['required', 'in:monthly,annual'],
+            'months'    => ['required', 'integer', 'min:1', 'max:12'],
             'reference' => ['required', 'string', 'max:100'],
             'amount'    => ['required', 'numeric'],
         ]);
@@ -82,7 +83,8 @@ class BillingController extends Controller
         }
 
         // Activate subscription
-        $subscription = $this->activateSubscription($company->id, $plan, $validated['cycle']);
+        $months       = $validated['cycle'] === 'annual' ? 12 : (int) $validated['months'];
+        $subscription = $this->activateSubscription($company->id, $plan, $validated['cycle'], $months);
 
         SubscriptionPayment::create([
             'company_id'      => $company->id,
@@ -90,6 +92,7 @@ class BillingController extends Controller
             'plan_id'         => $plan->id,
             'amount'          => $validated['amount'],
             'billing_cycle'   => $validated['cycle'],
+            'months'          => $months,
             'method'          => 'online',
             'status'          => 'completed',
             'reference'       => $validated['reference'],
@@ -108,13 +111,17 @@ class BillingController extends Controller
         $validated = $request->validate([
             'plan_id'  => ['required', 'exists:subscription_plans,id'],
             'cycle'    => ['required', 'in:monthly,annual'],
+            'months'   => ['required', 'integer', 'min:1', 'max:12'],
             'proof'    => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:4096'],
             'notes'    => ['nullable', 'string', 'max:500'],
         ]);
 
         $company = $request->user()->currentCompany;
         $plan    = SubscriptionPlan::findOrFail($validated['plan_id']);
-        $amount  = $validated['cycle'] === 'annual' ? $plan->price_annual : $plan->price_monthly;
+        $months  = $validated['cycle'] === 'annual' ? 12 : (int) $validated['months'];
+        $amount  = $validated['cycle'] === 'annual'
+            ? $plan->price_annual
+            : round($plan->price_monthly * $months, 2);
 
         $path = $request->file('proof')->store("proofs/{$company->id}", 'local');
 
@@ -123,6 +130,7 @@ class BillingController extends Controller
             'plan_id'       => $plan->id,
             'amount'        => $amount,
             'billing_cycle' => $validated['cycle'],
+            'months'        => $months,
             'method'        => 'offline',
             'status'        => 'pending',
             'reference'     => 'OFF-' . strtoupper(Str::random(10)),
@@ -160,14 +168,13 @@ class BillingController extends Controller
 
     // ── Private helpers ──────────────────────────────────────────────────────
 
-    private function activateSubscription(int $companyId, SubscriptionPlan $plan, string $cycle): Subscription
+    private function activateSubscription(int $companyId, SubscriptionPlan $plan, string $cycle, int $months): Subscription
     {
         // Expire any previous active subscriptions
         Subscription::where('company_id', $companyId)
             ->whereIn('status', ['active', 'trialing'])
             ->update(['status' => 'expired']);
 
-        $months   = $cycle === 'annual' ? 12 : 1;
         $startsAt = now()->toDateString();
         $endsAt   = now()->addMonths($months)->toDateString();
 

@@ -4,7 +4,9 @@ import { BookOpen, CheckCircle2, FileText, BarChart3, Wallet, Users, BookMarked,
 import { dashboard, login, register } from '@/routes';
 
 withDefaults(
-    defineProps<{ canRegister: boolean }>(),
+    defineProps<{ canRegister: boolean
+        ,plans:Array
+     }>(),
     { canRegister: true },
 );
 
@@ -20,7 +22,7 @@ const features = [
     { icon: BarChart3,   title: 'Reports',           desc: 'P&L, Balance Sheet, VAT Summary and aged debtors — ready in seconds.' },
     { icon: BookMarked,  title: 'Double-Entry',      desc: 'Every transaction posts clean journal entries automatically. Always balanced.' },
 ];
-
+/*
 const plans = [
     {
         name: 'Starter',
@@ -39,6 +41,7 @@ const plans = [
         features: ['Unlimited users', 'Everything in Growth', 'Multi-company', 'Dedicated account manager', '24/7 support'],
     },
 ];
+*/
 </script>
 
 <template>

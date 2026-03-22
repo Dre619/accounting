@@ -20,12 +20,30 @@ use App\Http\Controllers\ZraVsdcController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Settings\TeamController;
 use App\Http\Controllers\TeamInvitationController;
+use App\Models\SubscriptionPlan;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
+$plans = [];
+
+$subscriptionPlans = SubscriptionPlan::where('is_active',true)->get();
+
+foreach($subscriptionPlans as $plan)
+    {
+        $plans[] = [
+            'name' => $plan->name,
+            'popular' => $plan->sort_order == 2,
+            'price' => $plan->price_monthly,
+            'features' => $plan->features
+        ];
+    }
+
 Route::inertia('/', 'Welcome', [
     'canRegister' => Features::enabled(Features::registration()),
+    'plans' => $plans
 ])->name('home');
+
+Route::get('/brochure', fn () => view('brochure'))->name('brochure');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     // Company setup — shown when user has no company yet
