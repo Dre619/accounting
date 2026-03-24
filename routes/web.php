@@ -155,6 +155,9 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAdmin::class])
         Route::post('payments/{payment}/reject', [AdminPaymentsController::class, 'reject'])->name('payments.reject');
         Route::get('payments/{payment}/proof', [AdminPaymentsController::class, 'proof'])->name('payments.proof');
         Route::get('companies', [AdminCompaniesController::class, 'index'])->name('companies.index');
+        Route::get('companies/{company}/vsdc', [AdminCompaniesController::class, 'vsdc'])->name('companies.vsdc');
+        Route::put('companies/{company}/vsdc', [AdminCompaniesController::class, 'updateVsdc'])->name('companies.vsdc.update');
+        Route::post('companies/{company}/vsdc/initialize', [AdminCompaniesController::class, 'initializeVsdc'])->name('companies.vsdc.initialize');
 
         // Admin settings — profile, security & appearance (same backend, admin layout)
         Route::get('settings/profile',    [AdminSettingsController::class, 'profile'])->name('settings.profile');

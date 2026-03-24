@@ -1,1 +1,0 @@
-import{K as e,T as t,U as n,k as r,xt as i,yt as a}from"./index.esm-ZDB2fFVx.js";import{n as o}from"./button-Cz6qfgvz.js";var s=r({__name:`TableFooter`,props:{class:{}},setup(r){let s=r;return(r,c)=>(n(),t(`tfoot`,{class:i(a(o)(`border-t bg-muted/50 font-medium [&>tr]:last:border-b-0`,s.class))},[e(r.$slots,`default`)],2))}});export{s as t};

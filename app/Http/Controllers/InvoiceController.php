@@ -6,7 +6,6 @@ use App\Mail\InvoiceEmail;
 use App\Models\GoodsCode;
 use App\Models\Invoice;
 use App\Models\ServiceCode;
-use App\Models\TaxRate;
 use App\Services\InvoiceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;

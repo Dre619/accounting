@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\SubmitZraPurchaseJob;
 use App\Models\Bill;
 use App\Models\GoodsCode;
 use App\Models\ServiceCode;
 use App\Services\BillService;
-use App\Services\ZraVsdcService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,10 +14,7 @@ use Inertia\Response;
 
 class BillController extends Controller
 {
-    public function __construct(
-        private readonly BillService $service,
-        private readonly ZraVsdcService $vsdc,
-    ) {}
+    public function __construct(private readonly BillService $service) {}
 
     public function index(Request $request): Response
     {
@@ -133,14 +130,9 @@ class BillController extends Controller
         abort_unless(in_array($bill->status, ['approved', 'partial', 'paid']), 422, 'Only approved bills can be submitted to ZRA.');
         abort_if((bool) $bill->zra_submitted_at, 422, 'This bill has already been submitted to ZRA.');
 
-        try {
-            $bill->load(['items.taxRate', 'items.goodsCode', 'items.serviceCode', 'contact', 'company']);
-            $this->vsdc->submitPurchase($bill);
-        } catch (\RuntimeException $e) {
-            return back()->withErrors(['zra' => $e->getMessage()]);
-        }
+        SubmitZraPurchaseJob::dispatch($bill);
 
-        return back()->with('success', 'Bill submitted to ZRA successfully.');
+        return back()->with('success', 'Bill queued for ZRA submission.');
     }
 
     public function destroy(Request $request, Bill $bill): RedirectResponse

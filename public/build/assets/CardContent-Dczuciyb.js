@@ -1,0 +1,1 @@
+import{Ct as e,T as t,W as n,k as r,q as i,xt as a}from"./index.esm-D2hpCwNn.js";import{n as o}from"./button-C_tV3_62.js";var s=r({__name:`CardContent`,props:{class:{type:[Boolean,null,String,Object,Array]}},setup(r){let s=r;return(r,c)=>(n(),t(`div`,{"data-slot":`card-content`,class:e(a(o)(`px-6`,s.class))},[i(r.$slots,`default`)],2))}});export{s as t};

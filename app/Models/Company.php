@@ -35,11 +35,14 @@ class Company extends Model
         'vsdc_initialized',
         'vsdc_sdc_id',
         'vsdc_mrc_no',
+        'vsdc_status',
+        'vsdc_last_seen_at',
     ];
 
     protected $casts = [
         'trial_ends_at'    => 'datetime',
         'vsdc_initialized' => 'boolean',
+        'vsdc_last_seen_at'=> 'datetime',
     ];
 
     public function owner(): BelongsTo
@@ -159,6 +162,15 @@ class Company extends Model
     public function canAccess(): bool
     {
         return $this->isOnTrial() || $this->hasActiveSubscription();
+    }
+
+    public function isVsdcReady(): bool
+    {
+        return (bool) $this->vsdc_initialized
+            && (bool) $this->vsdc_url
+            && (bool) $this->vsdc_bhf_id
+            && (bool) $this->vsdc_sdc_id
+            && (bool) $this->vsdc_mrc_no;
     }
 
     /**

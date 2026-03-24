@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AdminLayout from '@/layouts/admin/AdminLayout.vue';
+import * as adminCompanies from '@/routes/admin/companies';
 
 interface Company {
     id: number;
@@ -15,6 +16,8 @@ interface Company {
     created_at: string;
     invoices_count: number;
     contacts_count: number;
+    vsdc_initialized: boolean;
+    vsdc_status: string | null;
     owner: { name: string; email: string };
     active_subscription: {
         status: string;
@@ -62,6 +65,7 @@ function trialDaysLeft(trialEndsAt: string | null): number {
                             <TableHead>Invoices</TableHead>
                             <TableHead>Contacts</TableHead>
                             <TableHead>Joined</TableHead>
+                            <TableHead>VSDC</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -93,9 +97,19 @@ function trialDaysLeft(trialEndsAt: string | null): number {
                             <TableCell class="text-muted-foreground text-xs">
                                 {{ new Date(c.created_at).toLocaleDateString() }}
                             </TableCell>
+                            <TableCell>
+                                <Button variant="ghost" size="sm" @click="router.get(adminCompanies.vsdc.url(c.id))">
+                                    <span v-if="c.vsdc_initialized" class="flex items-center gap-1.5">
+                                        <span class="h-2 w-2 rounded-full"
+                                            :class="c.vsdc_status === 'online' ? 'bg-green-500' : c.vsdc_status === 'offline' ? 'bg-red-500' : 'bg-yellow-400'" />
+                                        <span class="text-xs capitalize">{{ c.vsdc_status ?? 'ready' }}</span>
+                                    </span>
+                                    <span v-else class="text-xs text-muted-foreground">Set up</span>
+                                </Button>
+                            </TableCell>
                         </TableRow>
                         <TableRow v-if="!companies.data.length">
-                            <TableCell colspan="7" class="py-10 text-center text-muted-foreground">
+                            <TableCell colspan="8" class="py-10 text-center text-muted-foreground">
                                 No companies yet.
                             </TableCell>
                         </TableRow>

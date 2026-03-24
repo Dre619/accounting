@@ -112,6 +112,13 @@ class ZraVsdcService
 
         $itemList = [];
         foreach ($items as $seq => $item) {
+            $clsCd = $item->itemClsCd();
+            if (! $clsCd) {
+                throw new RuntimeException(
+                    "Item \"{$item->description}\" is missing a ZRA classification code. Please assign a ZRA code to all line items before submitting."
+                );
+            }
+
             $taxCd  = $this->mapTaxType($item->taxRate?->rate);
             $taxbl  = (float) $item->subtotal;
             $taxAmt = (float) $item->tax_amount;
@@ -122,7 +129,7 @@ class ZraVsdcService
             $itemList[] = [
                 'itemSeq'       => $seq + 1,
                 'itemCd'        => $this->itemCode($seq + 1),
-                'itemClsCd'     => $item->itemClsCd() ?? '5020230100',
+                'itemClsCd'     => $clsCd,
                 'itemNm'        => mb_substr($item->description, 0, 100),
                 'bcd'           => null,
                 'pkgUnitCd'     => 'NT',
@@ -235,6 +242,13 @@ class ZraVsdcService
 
         $itemList = [];
         foreach ($items as $seq => $item) {
+            $clsCd = $item->itemClsCd();
+            if (! $clsCd) {
+                throw new RuntimeException(
+                    "Item \"{$item->description}\" is missing a ZRA classification code. Please assign a ZRA code to all line items before submitting."
+                );
+            }
+
             $taxCd  = $this->mapTaxType($item->taxRate?->rate);
             $taxbl  = (float) $item->subtotal;
             $taxAmt = (float) $item->tax_amount;
@@ -245,7 +259,7 @@ class ZraVsdcService
             $itemList[] = [
                 'itemSeq'       => $seq + 1,
                 'itemCd'        => $this->itemCode($seq + 1),
-                'itemClsCd'     => $item->itemClsCd() ?? '5020230100',
+                'itemClsCd'     => $clsCd,
                 'itemNm'        => mb_substr($item->description, 0, 100),
                 'bcd'           => null,
                 'pkgUnitCd'     => 'NT',
@@ -368,8 +382,8 @@ class ZraVsdcService
 
     private function assertConfigured(Company $company): void
     {
-        if (! $company->vsdc_url || ! $company->vsdc_bhf_id) {
-            throw new RuntimeException('VSDC is not configured for this company. Please set the VSDC URL and Branch ID in Company Settings.');
+        if (! $company->isVsdcReady()) {
+            throw new RuntimeException('VSDC is not fully configured for this company. Please complete VSDC setup in Company Settings.');
         }
     }
 }
