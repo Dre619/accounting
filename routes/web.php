@@ -22,27 +22,21 @@ use App\Http\Controllers\Settings\TeamController;
 use App\Http\Controllers\TeamInvitationController;
 use App\Models\SubscriptionPlan;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 use Laravel\Fortify\Features;
 
-$plans = [];
-
-$subscriptionPlans = SubscriptionPlan::where('is_active',true)->get();
-
-foreach($subscriptionPlans as $plan)
-    {
-        $plans[] = [
-            'name' => $plan->name,
-            'popular' => $plan->sort_order == 2,
-            'price' => $plan->price_monthly,
-            'features' => $plan->features,
-            'description' => $plan->description
-        ];
-    }
-
-Route::inertia('/', 'Welcome', [
+// Resolved per request, not at route-registration time: this file is also loaded by
+// artisan (migrate, config:cache), where subscription_plans may not exist yet.
+Route::get('/', fn () => Inertia::render('Welcome', [
     'canRegister' => Features::enabled(Features::registration()),
-    'plans' => $plans
-])->name('home');
+    'plans'       => SubscriptionPlan::active()->get()->map(fn (SubscriptionPlan $plan) => [
+        'name'        => $plan->name,
+        'popular'     => $plan->sort_order == 2,
+        'price'       => $plan->price_monthly,
+        'features'    => $plan->features,
+        'description' => $plan->description,
+    ])->all(),
+]))->name('home');
 
 Route::get('/brochure', fn () => view('brochure'))->name('brochure');
 

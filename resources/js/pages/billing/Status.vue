@@ -29,6 +29,7 @@ interface PendingPayment {
 
 const props = defineProps<{
     subscription: Subscription | null;
+    subscriptionActive: boolean;
     pendingPayment: PendingPayment | null;
     trialEndsAt: string | null;
 }>();
@@ -43,6 +44,13 @@ const daysRemaining = computed(() => {
     if (!props.subscription) return 0;
     const diff = new Date(props.subscription.ends_at).getTime() - Date.now();
     return Math.max(0, Math.ceil(diff / 86_400_000));
+});
+
+// The nightly subscriptions:expire job may not have run yet, so a lapsed row can
+// still read "active" in the database. Trust the date-aware flag from the server.
+const displayStatus = computed(() => {
+    if (!props.subscription) return 'expired';
+    return props.subscriptionActive ? props.subscription.status : 'expired';
 });
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -90,16 +98,17 @@ function formatZmw(value: string | number) {
                 </CardContent>
             </Card>
 
-            <!-- Active subscription -->
+            <!-- Current subscription -->
             <Card v-if="subscription">
                 <CardHeader>
                     <div class="flex items-center justify-between">
                         <CardTitle class="flex items-center gap-2">
-                            <CheckCircle2 class="h-5 w-5 text-green-500" />
+                            <CheckCircle2 v-if="subscriptionActive" class="h-5 w-5 text-green-500" />
+                            <AlertCircle v-else class="h-5 w-5 text-destructive" />
                             {{ subscription.plan.name }} Plan
                         </CardTitle>
-                        <Badge :variant="statusConfig[subscription.status]?.variant ?? 'outline'">
-                            {{ statusConfig[subscription.status]?.label ?? subscription.status }}
+                        <Badge :variant="statusConfig[displayStatus]?.variant ?? 'outline'">
+                            {{ statusConfig[displayStatus]?.label ?? displayStatus }}
                         </Badge>
                     </div>
                 </CardHeader>
@@ -111,11 +120,19 @@ function formatZmw(value: string | number) {
                         <span class="text-muted-foreground">Started</span>
                         <span>{{ fmt(subscription.starts_at) }}</span>
 
-                        <span class="text-muted-foreground">Renews / Expires</span>
-                        <span>{{ fmt(subscription.ends_at) }} ({{ daysRemaining }} days)</span>
+                        <span class="text-muted-foreground">{{ subscriptionActive ? 'Renews' : 'Expired' }}</span>
+                        <span v-if="subscriptionActive">{{ fmt(subscription.ends_at) }} ({{ daysRemaining }} days)</span>
+                        <span v-else>{{ fmt(subscription.ends_at) }}</span>
                     </div>
 
+                    <p v-if="!subscriptionActive" class="text-sm text-muted-foreground">
+                        This subscription has ended and the app is locked until it's renewed.
+                    </p>
+
                     <div class="flex gap-3 pt-2">
+                        <Button v-if="!subscriptionActive" size="sm" @click="router.get(billing.checkout.url(subscription.plan.id), { cycle: subscription.billing_cycle })">
+                            <RefreshCw class="mr-2 h-4 w-4" /> Renew {{ subscription.plan.name }}
+                        </Button>
                         <Button variant="outline" size="sm" @click="router.get(billing.plans.url())">
                             <RefreshCw class="mr-2 h-4 w-4" /> Change Plan
                         </Button>

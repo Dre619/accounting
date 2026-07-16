@@ -31,7 +31,13 @@ class EnsureActiveSubscription
             return $next($request);
         }
 
-        return redirect()->route('billing.plans')
-            ->with('warning', 'Your trial has ended. Please subscribe to continue.');
+        $lapsed = $company->subscriptions()->exists();
+
+        return redirect()->route('billing.plans')->with(
+            'warning',
+            $lapsed
+                ? 'Your subscription has ended. Renew it to continue.'
+                : 'Your trial has ended. Please subscribe to continue.'
+        );
     }
 }

@@ -29,10 +29,11 @@ class BillingController extends Controller
             ->first();
 
         return Inertia::render('billing/Plans', [
-            'plans'        => $plans,
-            'subscription' => $subscription,
-            'trialEndsAt'  => $company->trial_ends_at,
-            'lencoPubKey'  => config('lenco.public_key'),
+            'plans'              => $plans,
+            'subscription'       => $subscription,
+            'subscriptionActive' => (bool) $subscription?->isActive(),
+            'trialEndsAt'        => $company->trial_ends_at,
+            'lencoPubKey'        => config('lenco.public_key'),
         ]);
     }
 
@@ -160,9 +161,10 @@ class BillingController extends Controller
             ->first();
 
         return Inertia::render('billing/Status', [
-            'subscription'   => $subscription,
-            'pendingPayment' => $pendingPayment,
-            'trialEndsAt'    => $company->trial_ends_at,
+            'subscription'       => $subscription,
+            'subscriptionActive' => (bool) $subscription?->isActive(),
+            'pendingPayment'     => $pendingPayment,
+            'trialEndsAt'        => $company->trial_ends_at,
         ]);
     }
 

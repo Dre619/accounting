@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { CheckCircle2, Zap } from 'lucide-vue-next';
+import { AlertCircle, CheckCircle2, Zap } from 'lucide-vue-next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +30,7 @@ interface Subscription {
 const props = defineProps<{
     plans: Plan[];
     subscription: Subscription | null;
+    subscriptionActive: boolean;
     trialEndsAt: string | null;
     lencoPubKey: string;
 }>();
@@ -42,12 +43,20 @@ const trialDaysLeft = computed(() => {
     return Math.max(0, Math.ceil(diff / 86_400_000));
 });
 
-const currentSlug = computed(() => props.subscription?.plan?.slug ?? null);
+const activeSubscription = computed(() => (props.subscriptionActive ? props.subscription : null));
+
+const lapsedSubscription = computed(() => (props.subscriptionActive ? null : props.subscription));
+
+const currentSlug = computed(() => activeSubscription.value?.plan?.slug ?? null);
 
 const planOrder: Record<string, number> = { starter: 0, growth: 1, business: 2 };
 
 function isCurrentPlan(plan: Plan) {
     return currentSlug.value === plan.slug;
+}
+
+function isRenewal(plan: Plan) {
+    return lapsedSubscription.value?.plan?.slug === plan.slug;
 }
 
 function isDowngrade(plan: Plan) {
@@ -84,13 +93,26 @@ function formatZmw(value: string | number) {
 
             <!-- Active subscription banner -->
             <div
-                v-if="subscription"
+                v-if="activeSubscription"
                 class="mb-8 flex items-center gap-3 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-green-800 dark:border-green-700 dark:bg-green-950 dark:text-green-200"
             >
                 <CheckCircle2 class="h-5 w-5 shrink-0" />
                 <span>
-                    Active plan: <strong>{{ subscription.plan.name }}</strong> ({{ subscription.billing_cycle }})
-                    — renews {{ new Date(subscription.ends_at).toLocaleDateString('en-ZM', { day: 'numeric', month: 'long', year: 'numeric' }) }}
+                    Active plan: <strong>{{ activeSubscription.plan.name }}</strong> ({{ activeSubscription.billing_cycle }})
+                    — renews {{ new Date(activeSubscription.ends_at).toLocaleDateString('en-ZM', { day: 'numeric', month: 'long', year: 'numeric' }) }}
+                </span>
+            </div>
+
+            <!-- Expired subscription banner -->
+            <div
+                v-else-if="lapsedSubscription"
+                class="mb-8 flex items-center gap-3 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
+            >
+                <AlertCircle class="h-5 w-5 shrink-0" />
+                <span>
+                    Your <strong>{{ lapsedSubscription.plan.name }}</strong> plan ended on
+                    {{ new Date(lapsedSubscription.ends_at).toLocaleDateString('en-ZM', { day: 'numeric', month: 'long', year: 'numeric' }) }}.
+                    Renew it below to restore access, or pick a different plan.
                 </span>
             </div>
 
@@ -107,6 +129,7 @@ function formatZmw(value: string | number) {
                         'relative flex flex-col',
                         plan.slug === 'growth' ? 'border-primary shadow-lg ring-2 ring-primary' : '',
                         isCurrentPlan(plan) ? 'ring-2 ring-green-500 border-green-500' : '',
+                        isRenewal(plan) ? 'ring-2 ring-red-500 border-red-500' : '',
                     ]"
                 >
                     <!-- Badges -->
@@ -115,6 +138,13 @@ function formatZmw(value: string | number) {
                         class="absolute -top-3 left-1/2 -translate-x-1/2 bg-green-600 hover:bg-green-600"
                     >
                         Current Plan
+                    </Badge>
+                    <Badge
+                        v-else-if="isRenewal(plan)"
+                        variant="destructive"
+                        class="absolute -top-3 left-1/2 -translate-x-1/2"
+                    >
+                        Expired
                     </Badge>
                     <Badge
                         v-else-if="plan.slug === 'growth' && !currentSlug"
@@ -161,6 +191,20 @@ function formatZmw(value: string | number) {
                             </Button>
                         </template>
 
+                        <!-- Renew the plan that just expired -->
+                        <template v-else-if="isRenewal(plan)">
+                            <Button class="w-full" @click="goToCheckout(plan, 'monthly')">
+                                Renew Monthly
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                class="w-full text-xs"
+                                @click="goToCheckout(plan, 'annual')"
+                            >
+                                Renew Annually (save ~17%)
+                            </Button>
+                        </template>
+
                         <!-- Downgrade -->
                         <template v-else-if="isDowngrade(plan)">
                             <Button
@@ -179,14 +223,14 @@ function formatZmw(value: string | number) {
                                 :variant="plan.slug === 'growth' ? 'default' : 'outline'"
                                 @click="goToCheckout(plan, 'monthly')"
                             >
-                                {{ subscription ? 'Upgrade' : 'Subscribe' }} Monthly
+                                {{ activeSubscription ? 'Upgrade' : 'Subscribe' }} Monthly
                             </Button>
                             <Button
                                 variant="ghost"
                                 class="w-full text-xs"
                                 @click="goToCheckout(plan, 'annual')"
                             >
-                                {{ subscription ? 'Upgrade' : 'Subscribe' }} Annually (save ~17%)
+                                {{ activeSubscription ? 'Upgrade' : 'Subscribe' }} Annually (save ~17%)
                             </Button>
                         </template>
                     </CardFooter>

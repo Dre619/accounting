@@ -1,7 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "PowerShell(npm run types:check 2>&1)",
+      "PowerShell($out = npm run types:check 2>&1 | Out-String; $out -split \"`n\" | Select-String -Pattern 'billing'; \"---- billing errors above \\(if any\\) ----\"; \\($out -split \"`n\" | Select-String -Pattern 'error TS'\\).Count)",
+      "PowerShell(npm run build 2>&1)",
+      "PowerShell(php artisan test --filter=BillingRenewalTest 2>&1)",
+      "PowerShell(php artisan test --filter=DashboardTest 2>&1)",
+      "PowerShell($env:DB_CONNECTION='sqlite'; $env:DB_DATABASE=':memory:'; $env:APP_ENV='testing'; php artisan migrate --database=sqlite --env=testing --force 2>&1 | Select-Object -Last 25)",
+      "PowerShell(php artisan test 2>&1)",
+      "PowerShell($env:DB_CONNECTION='sqlite'; $env:DB_DATABASE='D:\\\\CloudOne\\\\accounting\\\\storage\\\\verify_fresh.sqlite'; if \\(-not \\(Test-Path $env:DB_DATABASE\\)\\) { New-Item -ItemType File $env:DB_DATABASE | Out-Null }; php artisan migrate --force 2>&1 | Select-Object -Last 6; \"==== EXIT: $LASTEXITCODE ====\"; Remove-Item $env:DB_DATABASE -Force)"
     ]
   }
 }
