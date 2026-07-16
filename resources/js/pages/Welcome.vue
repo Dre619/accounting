@@ -61,6 +61,10 @@ const plans = [
                 </div>
                 <!-- Links -->
                 <nav class="flex items-center gap-3">
+                    <Link href="/manual"
+                        class="hidden sm:block text-sm font-medium text-blue-200 hover:text-white transition-colors px-3 py-2">
+                        User Manual
+                    </Link>
                     <Link v-if="$page.props.auth.user" :href="dashboardUrl"
                         class="rounded-lg px-5 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
                         style="background:#f97316;">
@@ -268,9 +272,14 @@ const plans = [
                     <span class="text-blue-300 font-medium">CloudOne Accounting</span>
                 </div>
                 <p>© {{ new Date().getFullYear() }} CloudOne Technologies Ltd &middot; Lusaka, Zambia</p>
-                <a href="mailto:support@cloudone.co.zm" class="text-blue-400 hover:text-blue-200 transition-colors">
-                    support@cloudone.co.zm
-                </a>
+                <div class="flex items-center gap-4">
+                    <Link href="/manual" class="text-blue-400 hover:text-blue-200 transition-colors">
+                        User Manual
+                    </Link>
+                    <a href="mailto:support@cloudone.co.zm" class="text-blue-400 hover:text-blue-200 transition-colors">
+                        support@cloudone.co.zm
+                    </a>
+                </div>
             </div>
         </footer>
 

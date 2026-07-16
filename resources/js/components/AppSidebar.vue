@@ -8,6 +8,7 @@ import {
     CreditCard,
     FileText,
     LayoutGrid,
+    LifeBuoy,
     RefreshCw,
     Receipt,
     UserSquare2,
@@ -71,6 +72,7 @@ const mainNavItems = computed<NavItem[]>(() =>
 );
 
 const footerNavItems: NavItem[] = [
+    { title: 'User Manual', href: '/manual',               icon: LifeBuoy   },
     { title: 'Billing',    href: billing.status.url(),     icon: CreditCard },
 ];
 </script>

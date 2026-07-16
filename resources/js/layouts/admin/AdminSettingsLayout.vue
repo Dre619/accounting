@@ -11,6 +11,7 @@ const nav = [
     { title: 'Appearance', href: '/admin/settings/appearance'  },
     { title: 'Platform',   href: '/admin/settings/platform'    },
     { title: 'Plans',      href: '/admin/settings/plans'       },
+    { title: 'Manual',     href: '/admin/settings/manual'      },
     { title: 'Users',      href: '/admin/settings/users'       },
 ];
 </script>

@@ -3,8 +3,10 @@
 use App\Http\Controllers\Admin\CompaniesController as AdminCompaniesController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\PaymentsController as AdminPaymentsController;
+use App\Http\Controllers\Admin\ManualController as AdminManualController;
 use App\Http\Controllers\Admin\SettingsController as AdminSettingsController;
 use App\Http\Controllers\BillingController;
+use App\Http\Controllers\ManualController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\BillController;
 use App\Http\Controllers\ContactController;
@@ -39,6 +41,9 @@ Route::get('/', fn () => Inertia::render('Welcome', [
 ]))->name('home');
 
 Route::get('/brochure', fn () => view('brochure'))->name('brochure');
+
+// User manual — public, and equally reachable once signed in.
+Route::get('/manual', [ManualController::class, 'index'])->name('manual');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     // Company setup — shown when user has no company yet
@@ -163,6 +168,17 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAdmin::class])
         Route::post('settings/platform', [AdminSettingsController::class, 'updatePlatform'])->name('settings.platform.update');
         Route::get('settings/plans', [AdminSettingsController::class, 'plans'])->name('settings.plans');
         Route::patch('settings/plans/{plan}', [AdminSettingsController::class, 'updatePlan'])->name('settings.plans.update');
+        // Admin settings — user manual
+        Route::get('settings/manual', [AdminManualController::class, 'index'])->name('settings.manual');
+        Route::post('settings/manual', [AdminManualController::class, 'store'])->name('settings.manual.store');
+        Route::post('settings/manual/preview', [AdminManualController::class, 'preview'])->name('settings.manual.preview');
+        Route::post('settings/manual/reorder', [AdminManualController::class, 'reorder'])->name('settings.manual.reorder');
+        Route::put('settings/manual/{section}', [AdminManualController::class, 'update'])->name('settings.manual.update');
+        Route::delete('settings/manual/{section}', [AdminManualController::class, 'destroy'])->name('settings.manual.destroy');
+        Route::post('settings/manual/{section}/images', [AdminManualController::class, 'uploadImage'])->name('settings.manual.images.store');
+        Route::put('settings/manual/images/{image}', [AdminManualController::class, 'updateImage'])->name('settings.manual.images.update');
+        Route::delete('settings/manual/images/{image}', [AdminManualController::class, 'destroyImage'])->name('settings.manual.images.destroy');
+
         Route::get('settings/users', [AdminSettingsController::class, 'users'])->name('settings.users');
         Route::post('settings/users/{user}/toggle-admin', [AdminSettingsController::class, 'toggleAdmin'])->name('settings.users.toggle-admin');
         Route::delete('settings/users/{user}', [AdminSettingsController::class, 'destroyUser'])->name('settings.users.destroy');

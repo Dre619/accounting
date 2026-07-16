@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
             //AccountingSeeder::class,
             //DemoSeeder::class,
             ZraCodeSeeder::class,
+            ManualSectionSeeder::class,
         ]);
     }
 }
