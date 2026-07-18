@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
-import { BarChart3, BookOpen, Clock, FileText, TrendingUp } from 'lucide-vue-next';
+import { Head, Link, usePage } from '@inertiajs/vue3';
+import { ArrowLeftRight, BarChart3, BookOpen, Clock, FileText, Package, TrendingUp } from 'lucide-vue-next';
+import { computed } from 'vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/AppLayout.vue';
 import * as reports from '@/routes/reports';
 
-const reportCards = [
+const page = usePage();
+const features = computed(() => (page.props.planFeatures as string[]) ?? []);
+
+const reportCards = computed(() => [
     {
         title: 'Profit & Loss',
         description: 'Revenue, expenses and net profit for a date range.',
@@ -36,7 +40,18 @@ const reportCards = [
         icon: BarChart3,
         href: reports.agedPayables.url(),
     },
-];
+    ...(features.value.includes('inventory') ? [{
+        title: 'Inventory Valuation',
+        description: 'Stock on hand valued at average cost, reconciled to the ledger.',
+        icon: Package,
+        href: '/reports/inventory-valuation',
+    }, {
+        title: 'Stock Movements',
+        description: 'Audit trail of every stock in/out over a date range.',
+        icon: ArrowLeftRight,
+        href: '/reports/stock-movements',
+    }] : []),
+]);
 </script>
 
 <template>

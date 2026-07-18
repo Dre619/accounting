@@ -67,10 +67,35 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             Route::resource('contacts', ContactController::class);
 
+            // CRM (Business plan)
+            Route::middleware('plan.feature:crm')->group(function () {
+                Route::post('contacts/{contact}/activities', [\App\Http\Controllers\ActivityController::class, 'store'])->name('activities.store');
+                Route::post('opportunities/{opportunity}/activities', [\App\Http\Controllers\ActivityController::class, 'storeForOpportunity'])->name('opportunities.activities.store');
+                Route::delete('activities/{activity}', [\App\Http\Controllers\ActivityController::class, 'destroy'])->name('activities.destroy');
+
+                Route::get('tasks', [\App\Http\Controllers\TaskController::class, 'index'])->name('tasks.index');
+                Route::post('tasks', [\App\Http\Controllers\TaskController::class, 'store'])->name('tasks.store');
+                Route::put('tasks/{task}', [\App\Http\Controllers\TaskController::class, 'update'])->name('tasks.update');
+                Route::post('tasks/{task}/complete', [\App\Http\Controllers\TaskController::class, 'complete'])->name('tasks.complete');
+                Route::delete('tasks/{task}', [\App\Http\Controllers\TaskController::class, 'destroy'])->name('tasks.destroy');
+
+                Route::resource('opportunities', \App\Http\Controllers\OpportunityController::class);
+                Route::post('opportunities/{opportunity}/won', [\App\Http\Controllers\OpportunityController::class, 'won'])->name('opportunities.won');
+                Route::post('opportunities/{opportunity}/lost', [\App\Http\Controllers\OpportunityController::class, 'lost'])->name('opportunities.lost');
+                Route::post('opportunities/{opportunity}/convert', [\App\Http\Controllers\OpportunityController::class, 'convert'])->name('opportunities.convert');
+            });
+
             Route::resource('invoices', InvoiceController::class);
             Route::post('invoices/{invoice}/send', [InvoiceController::class, 'send'])->name('invoices.send');
             Route::post('invoices/{invoice}/void', [InvoiceController::class, 'void'])->name('invoices.void');
             Route::get('invoices/{invoice}/print', [InvoiceController::class, 'print'])->name('invoices.print');
+
+            Route::resource('sales-orders', \App\Http\Controllers\SalesOrderController::class);
+            Route::get('sales-orders/{salesOrder}/print', [\App\Http\Controllers\SalesOrderController::class, 'print'])->name('sales-orders.print');
+            Route::post('sales-orders/{salesOrder}/send', [\App\Http\Controllers\SalesOrderController::class, 'send'])->name('sales-orders.send');
+            Route::post('sales-orders/{salesOrder}/accept', [\App\Http\Controllers\SalesOrderController::class, 'accept'])->name('sales-orders.accept');
+            Route::post('sales-orders/{salesOrder}/cancel', [\App\Http\Controllers\SalesOrderController::class, 'cancel'])->name('sales-orders.cancel');
+            Route::post('sales-orders/{salesOrder}/convert', [\App\Http\Controllers\SalesOrderController::class, 'convertToInvoice'])->name('sales-orders.convert');
 
             Route::middleware('plan.feature:bills')->group(function () {
                 Route::resource('bills', BillController::class);
@@ -78,6 +103,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::post('bills/{bill}/void', [BillController::class, 'void'])->name('bills.void');
                 Route::get('bills/{bill}/print', [BillController::class, 'print'])->name('bills.print');
                 Route::post('bills/{bill}/zra-submit', [BillController::class, 'submitZra'])->name('bills.zra-submit');
+
+                Route::resource('purchase-orders', \App\Http\Controllers\PurchaseOrderController::class);
+                Route::get('purchase-orders/{purchaseOrder}/print', [\App\Http\Controllers\PurchaseOrderController::class, 'print'])->name('purchase-orders.print');
+                Route::post('purchase-orders/{purchaseOrder}/send', [\App\Http\Controllers\PurchaseOrderController::class, 'send'])->name('purchase-orders.send');
+                Route::post('purchase-orders/{purchaseOrder}/cancel', [\App\Http\Controllers\PurchaseOrderController::class, 'cancel'])->name('purchase-orders.cancel');
+                Route::post('purchase-orders/{purchaseOrder}/convert', [\App\Http\Controllers\PurchaseOrderController::class, 'convertToBill'])->name('purchase-orders.convert');
             });
 
             Route::get('payments/open-documents', [PaymentController::class, 'openDocuments'])->name('payments.open-documents');
@@ -85,6 +116,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::resource('payments', PaymentController::class)->except(['edit', 'update']);
 
             Route::resource('accounts', AccountController::class);
+
+            // Products & inventory (Growth+)
+            Route::middleware('plan.feature:inventory')->group(function () {
+                Route::resource('products', \App\Http\Controllers\ProductController::class);
+                Route::post('products/{product}/adjust', [\App\Http\Controllers\ProductController::class, 'adjust'])->name('products.adjust');
+            });
 
             // Journal entries (Business only)
             Route::middleware('plan.feature:journals')->prefix('journal')->name('journal.')->group(function () {
@@ -103,6 +140,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('profit-loss', [ReportController::class, 'profitLoss'])->name('profit-loss');
                 Route::get('profit-loss/print', [ReportController::class, 'profitLossPrint'])->name('profit-loss.print');
                 Route::get('profit-loss/csv', [ReportController::class, 'profitLossCsv'])->name('profit-loss.csv');
+                // Inventory valuation — requires the inventory feature
+                Route::middleware('plan.feature:inventory')->group(function () {
+                    Route::get('inventory-valuation', [ReportController::class, 'inventoryValuation'])->name('inventory-valuation');
+                    Route::get('inventory-valuation/csv', [ReportController::class, 'inventoryValuationCsv'])->name('inventory-valuation.csv');
+                    Route::get('stock-movements', [ReportController::class, 'stockMovements'])->name('stock-movements');
+                    Route::get('stock-movements/csv', [ReportController::class, 'stockMovementsCsv'])->name('stock-movements.csv');
+                });
                 // Advanced reports — Growth+
                 Route::middleware('plan.feature:reports_advanced')->group(function () {
                     Route::get('balance-sheet', [ReportController::class, 'balanceSheet'])->name('balance-sheet');

@@ -15,6 +15,7 @@ class Invoice extends Model
     protected $fillable = [
         'company_id',
         'contact_id',
+        'sales_order_id',
         'invoice_number',
         'status',
         'issue_date',
@@ -65,6 +66,11 @@ class Invoice extends Model
     public function contact(): BelongsTo
     {
         return $this->belongsTo(Contact::class);
+    }
+
+    public function salesOrder(): BelongsTo
+    {
+        return $this->belongsTo(SalesOrder::class);
     }
 
     public function receivableAccount(): BelongsTo

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PayrollRun;
+use App\Services\DocumentPdfService;
 use App\Services\PayrollService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -107,7 +108,7 @@ class PayrollController extends Controller
 
     // ── Payslip print ─────────────────────────────────────────────────────────
 
-    public function printPayslip(Request $request, PayrollRun $payroll, \App\Models\Payslip $payslip): \Illuminate\Contracts\View\View
+    public function printPayslip(Request $request, PayrollRun $payroll, \App\Models\Payslip $payslip, DocumentPdfService $pdf): \Symfony\Component\HttpFoundation\Response
     {
         $this->authorise($request, $payroll);
         abort_unless($payslip->payroll_run_id === $payroll->id, 404);
@@ -115,7 +116,11 @@ class PayrollController extends Controller
         $payslip->load('employee');
         $company = $request->user()->currentCompany;
 
-        return view('payroll.payslip', compact('payslip', 'payroll', 'company'));
+        return $pdf->streamInline(
+            'payroll.payslip',
+            compact('payslip', 'payroll', 'company'),
+            'Payslip-' . $payslip->employee->employee_number . '-' . $payroll->period . '.pdf',
+        );
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

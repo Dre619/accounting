@@ -15,7 +15,17 @@
       "PowerShell(if \\(Test-Path 'd:\\\\CloudOne\\\\accounting\\\\public\\\\storage'\\) { \"storage symlink EXISTS\"; \\(Get-Item 'd:\\\\CloudOne\\\\accounting\\\\public\\\\storage'\\).LinkType } else { \"storage symlink MISSING - images will 404 until 'php artisan storage:link' is run\" })",
       "PowerShell($out = npm run types:check 2>&1 | Out-String; \"---- errors in NEW manual files ----\"; \\($out -split \"`n\" | Select-String -Pattern 'manual'\\); \"---- total TS errors \\(baseline was 41\\) ----\"; \\($out -split \"`n\" | Select-String -Pattern 'error TS'\\).Count)",
       "PowerShell($out = npm run types:check 2>&1 | Out-String; \"---- errors in manual files ----\"; $m = \\($out -split \"`n\" | Select-String -Pattern 'manual'\\); if \\($m\\) { $m } else { \"none\" }; \"---- total TS errors \\(baseline 41\\) ----\"; \\($out -split \"`n\" | Select-String -Pattern 'error TS'\\).Count; npm run build 2>&1 | Select-String -Pattern 'built in')",
-      "PowerShell($env:DB_CONNECTION='sqlite'; $env:DB_DATABASE='C:\\\\Users\\\\ANDREWC\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--CloudOne-accounting\\\\b38770c6-38d8-4396-820e-3b912df68961\\\\scratchpad\\\\manual_e2e.sqlite'; $env:APP_ENV='local'; php artisan serve --port=8899)"
+      "PowerShell($env:DB_CONNECTION='sqlite'; $env:DB_DATABASE='C:\\\\Users\\\\ANDREWC\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--CloudOne-accounting\\\\b38770c6-38d8-4396-820e-3b912df68961\\\\scratchpad\\\\manual_e2e.sqlite'; $env:APP_ENV='local'; php artisan serve --port=8899)",
+      "PowerShell(php -v | Select-Object -First 1; \"---- gd/mbstring \\(needed by PDF libs\\) ----\"; php -m | Select-String -Pattern '^\\(gd|mbstring|dom|zlib\\)$'; \"---- composer reachable? ----\"; try { $r = Invoke-WebRequest -Uri 'https://repo.packagist.org/packages.json' -UseBasicParsing -TimeoutSec 8 -Method Head; \"packagist HEAD: $\\($r.StatusCode\\)\" } catch { \"OFFLINE or blocked: $\\($_.Exception.Message\\)\" })",
+      "PowerShell(composer require barryvdh/laravel-dompdf --no-interaction 2>&1)",
+      "PowerShell(php artisan test --filter=DocumentPdfTest 2>&1)",
+      "Bash(php artisan *)",
+      "Bash(git stash *)",
+      "Bash(git config *)",
+      "Bash(cat > *)"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
     ]
   }
 }

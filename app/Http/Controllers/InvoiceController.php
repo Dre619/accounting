@@ -6,6 +6,7 @@ use App\Mail\InvoiceEmail;
 use App\Models\GoodsCode;
 use App\Models\Invoice;
 use App\Models\ServiceCode;
+use App\Services\DocumentPdfService;
 use App\Services\InvoiceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -149,14 +150,19 @@ class InvoiceController extends Controller
         return back()->with('success', "Invoice {$invoice->invoice_number} emailed to {$invoice->contact->email}.");
     }
 
-    public function print(Request $request, Invoice $invoice): \Illuminate\Contracts\View\View
+    public function print(Request $request, Invoice $invoice, DocumentPdfService $pdf): \Symfony\Component\HttpFoundation\Response
     {
         $this->authorise($request, $invoice);
 
         $invoice->load(['contact', 'items.taxRate', 'items.account:id,name,code']);
         $company = $request->user()->currentCompany;
+        $logoSrc = $pdf->logoDataUri($company->logo_path);
 
-        return view('invoices.print', compact('invoice', 'company'));
+        return $pdf->streamInline(
+            'invoices.print',
+            compact('invoice', 'company', 'logoSrc'),
+            "Invoice-{$invoice->invoice_number}.pdf",
+        );
     }
 
     public function destroy(Request $request, Invoice $invoice): RedirectResponse
@@ -190,6 +196,9 @@ class InvoiceController extends Controller
             'vsdcEnabled'  => (bool) $company->vsdc_initialized,
             'goodsCodes'   => GoodsCode::orderBy('name')->get(['id', 'name', 'hs_code']),
             'serviceCodes' => ServiceCode::orderBy('name')->get(['id', 'name', 'hs_code']),
+            'products'     => $company->products()->active()->orderBy('name')
+                ->get(['id', 'sku', 'name', 'type', 'sales_price', 'sales_account_id',
+                    'tax_rate_id', 'item_type', 'cls_code_id', 'quantity_on_hand']),
         ];
     }
 
@@ -207,6 +216,7 @@ class InvoiceController extends Controller
             'items.*.id'               => ['nullable', 'integer'],
             'items.*.description'      => ['required', 'string', 'max:255'],
             'items.*.account_id'       => ['nullable', 'integer'],
+            'items.*.product_id'       => ['nullable', 'integer'],
             'items.*.tax_rate_id'      => ['nullable', 'integer'],
             'items.*.quantity'         => ['required', 'numeric', 'min:0.001'],
             'items.*.unit_price'       => ['required', 'numeric', 'min:0'],

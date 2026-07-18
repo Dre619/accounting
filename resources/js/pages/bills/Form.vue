@@ -14,15 +14,28 @@ interface Contact  { id: number; name: string }
 interface Account  { id: number; code: string; name: string }
 interface TaxRate  { id: number; name: string; code: string; rate: string }
 interface ClsCode  { id: number; name: string; hs_code: number }
-interface BillItem { id?: number; description: string; account_id: number|null; tax_rate_id: number|null; quantity: number; unit_price: number; discount_percent: number; item_type: 'goods'|'service'; cls_code_id: number|null }
+interface Product  { id: number; sku: string|null; name: string; type: string; purchase_account_id: number|null; tax_rate_id: number|null; item_type: 'goods'|'service'; cls_code_id: number|null; quantity_on_hand: string; average_cost: string }
+interface BillItem { id?: number; description: string; account_id: number|null; product_id: number|null; tax_rate_id: number|null; quantity: number; unit_price: number; discount_percent: number; item_type: 'goods'|'service'; cls_code_id: number|null }
 interface Bill     { id: number; contact_id: number; bill_number: string|null; reference: string|null; issue_date: string; due_date: string; notes: string|null; discount_amount: number; items: (BillItem & { subtotal: number; tax_amount: number; total: number })[] }
 
-const props = defineProps<{ bill: Bill|null; contacts: Contact[]; accounts: Account[]; taxRates: TaxRate[]; vsdcEnabled: boolean; goodsCodes: ClsCode[]; serviceCodes: ClsCode[] }>();
+const props = defineProps<{ bill: Bill|null; contacts: Contact[]; accounts: Account[]; taxRates: TaxRate[]; vsdcEnabled: boolean; goodsCodes: ClsCode[]; serviceCodes: ClsCode[]; products: Product[] }>();
 
 const isEdit = !!props.bill;
 const today  = new Date().toISOString().slice(0, 10);
 const in30   = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
-const blank  = (): BillItem => ({ description: '', account_id: null, tax_rate_id: null, quantity: 1, unit_price: 0, discount_percent: 0, item_type: 'service', cls_code_id: null });
+const blank  = (): BillItem => ({ description: '', account_id: null, product_id: null, tax_rate_id: null, quantity: 1, unit_price: 0, discount_percent: 0, item_type: 'service', cls_code_id: null });
+
+// Selecting a product autofills the line from the item master (purchase side).
+function onProductChange(item: BillItem) {
+    const p = props.products.find(x => x.id === item.product_id);
+    if (!p) return;
+    item.description = p.name;
+    item.account_id  = p.purchase_account_id ?? item.account_id;
+    item.tax_rate_id = p.tax_rate_id ?? item.tax_rate_id;
+    item.item_type   = p.item_type;
+    item.cls_code_id = p.cls_code_id;
+    if (Number(p.average_cost) > 0) item.unit_price = Number(p.average_cost);
+}
 
 const clsSearch = ref<string[]>([]);
 const clsOpen   = ref<boolean[]>([]);
@@ -52,7 +65,7 @@ const form = useForm({
     due_date:        props.bill?.due_date ?? in30,
     notes:           props.bill?.notes ?? '',
     discount_amount: props.bill?.discount_amount ?? 0,
-    items:           props.bill?.items?.map(i => ({ id: i.id, description: i.description, account_id: i.account_id, tax_rate_id: i.tax_rate_id, quantity: i.quantity, unit_price: i.unit_price, discount_percent: i.discount_percent, item_type: i.item_type ?? 'service', cls_code_id: i.cls_code_id ?? null })) ?? [blank()],
+    items:           props.bill?.items?.map(i => ({ id: i.id, description: i.description, account_id: i.account_id, product_id: i.product_id ?? null, tax_rate_id: i.tax_rate_id, quantity: i.quantity, unit_price: i.unit_price, discount_percent: i.discount_percent, item_type: i.item_type ?? 'service', cls_code_id: i.cls_code_id ?? null })) ?? [blank()],
 });
 
 function calcItem(item: BillItem) {
@@ -140,7 +153,14 @@ function fmt(v: number) { return v.toLocaleString('en-ZM', { minimumFractionDigi
                             :class="vsdcEnabled
                                 ? 'md:grid-cols-[1fr_110px_180px_140px_120px_100px_120px_100px_110px_36px]'
                                 : 'md:grid-cols-[1fr_140px_120px_100px_120px_100px_110px_36px]'">
-                            <div>
+                            <div class="space-y-1">
+                                <select v-if="products.length" v-model="item.product_id" @change="onProductChange(item)"
+                                    class="h-8 w-full rounded-md border border-input bg-transparent px-2 py-0.5 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                                    <option :value="null">— Free text / pick a product…</option>
+                                    <option v-for="p in products" :key="p.id" :value="p.id">
+                                        {{ p.name }}<template v-if="p.type === 'inventory'"> ({{ Number(p.quantity_on_hand) }} in stock)</template>
+                                    </option>
+                                </select>
                                 <Input v-model="item.description" placeholder="Description" />
                                 <InputError :message="(form.errors as Record<string,string>)[`items.${i}.description`]" />
                             </div>

@@ -15,6 +15,7 @@ class Bill extends Model
     protected $fillable = [
         'company_id',
         'contact_id',
+        'purchase_order_id',
         'bill_number',
         'reference',
         'status',
@@ -59,6 +60,11 @@ class Bill extends Model
     public function contact(): BelongsTo
     {
         return $this->belongsTo(Contact::class);
+    }
+
+    public function purchaseOrder(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseOrder::class);
     }
 
     public function payableAccount(): BelongsTo

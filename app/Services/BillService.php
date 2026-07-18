@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\DB;
 
 class BillService
 {
+    public function __construct(private readonly StockService $stock) {}
+
     public function store(Company $company, array $data): Bill
     {
         return DB::transaction(function () use ($company, $data) {
@@ -87,6 +89,9 @@ class BillService
             $this->reverseJournalEntry($original, $bill);
         }
 
+        // Remove any received stock (GL already unwound above).
+        $this->stock->reverseFor($bill);
+
         return $bill;
     }
 
@@ -107,6 +112,7 @@ class BillService
 
             $payload = [
                 'account_id'       => $itemData['account_id'] ?? null,
+                'product_id'       => $itemData['product_id'] ?? null,
                 'tax_rate_id'      => $itemData['tax_rate_id'] ?? null,
                 'description'      => $itemData['description'],
                 'quantity'         => $itemData['quantity'] ?? 1,
@@ -152,19 +158,41 @@ class BillService
         $lines = [];
         $sort  = 0;
 
-        // DR Expense accounts per line item
-        $expenseByAccount = $bill->items()
-            ->whereNotNull('account_id')
-            ->selectRaw('account_id, SUM(subtotal) as total')
-            ->groupBy('account_id')
-            ->get();
+        // DR per line: inventory products debit the Inventory asset and receive
+        // stock at their purchase cost; everything else debits its expense account.
+        $debitByAccount = [];
 
-        foreach ($expenseByAccount as $row) {
+        foreach ($bill->items()->with('product')->get() as $item) {
+            $product     = $item->product;
+            $isInventory = $product && $product->tracksStock();
+
+            $accountId = $isInventory
+                ? ($product->inventory_account_id ?? $this->accountIdByCode($company->id, '1300'))
+                : $item->account_id;
+
+            if (! $accountId) {
+                continue;
+            }
+
+            $debitByAccount[$accountId] = ($debitByAccount[$accountId] ?? 0) + (float) $item->subtotal;
+
+            if ($isInventory && (float) $item->quantity > 0) {
+                $unitCost = round((float) $item->subtotal / (float) $item->quantity, 4);
+                $this->stock->receiveStock($product, (float) $item->quantity, $unitCost, [
+                    'source'           => $bill,
+                    'journal_entry_id' => $entry->id,
+                    'date'             => $bill->issue_date,
+                    'description'      => "Received — Bill {$bill->bill_number}",
+                ]);
+            }
+        }
+
+        foreach ($debitByAccount as $accountId => $amount) {
             $lines[] = [
                 'journal_entry_id' => $entry->id,
-                'account_id'       => $row->account_id,
-                'description'      => "Expense — Bill {$bill->bill_number}",
-                'debit'            => $row->total,
+                'account_id'       => $accountId,
+                'description'      => "Bill {$bill->bill_number}",
+                'debit'            => round($amount, 2),
                 'credit'           => 0,
                 'contact_id'       => $bill->contact_id,
                 'sort_order'       => $sort++,
@@ -241,5 +269,10 @@ class BillService
     private function defaultPayableAccount(Company $company): ?Account
     {
         return Account::where('company_id', $company->id)->where('code', '2000')->first();
+    }
+
+    private function accountIdByCode(int $companyId, string $code): ?int
+    {
+        return Account::where('company_id', $companyId)->where('code', $code)->value('id');
     }
 }

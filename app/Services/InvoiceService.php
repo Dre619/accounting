@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\DB;
 
 class InvoiceService
 {
+    public function __construct(private readonly StockService $stock) {}
+
     public function store(Company $company, array $data): Invoice
     {
         return DB::transaction(function () use ($company, $data) {
@@ -90,6 +92,9 @@ class InvoiceService
             $this->reverseJournalEntry($original, $invoice);
         }
 
+        // Return any issued stock to inventory (GL already unwound above).
+        $this->stock->reverseFor($invoice);
+
         return $invoice;
     }
 
@@ -115,6 +120,7 @@ class InvoiceService
                 $item = InvoiceItem::find($itemData['id']);
                 $item->update([
                     'account_id'       => $itemData['account_id'] ?? null,
+                    'product_id'       => $itemData['product_id'] ?? null,
                     'tax_rate_id'      => $itemData['tax_rate_id'] ?? null,
                     'description'      => $itemData['description'],
                     'quantity'         => $itemData['quantity'] ?? 1,
@@ -131,6 +137,7 @@ class InvoiceService
             } else {
                 $item = $invoice->items()->create([
                     'account_id'       => $itemData['account_id'] ?? null,
+                    'product_id'       => $itemData['product_id'] ?? null,
                     'tax_rate_id'      => $itemData['tax_rate_id'] ?? null,
                     'description'      => $itemData['description'],
                     'quantity'         => $itemData['quantity'] ?? 1,
@@ -238,7 +245,74 @@ class InvoiceService
             }
         }
 
+        // Cost of goods sold + inventory relief for inventory-tracked lines.
+        // Each such line issues stock at weighted-average cost; the returned
+        // movement's cost is the COGS to post (DR COGS / CR Inventory).
+        $cogsByAccount = [];
+        $invByAccount  = [];
+
+        foreach ($invoice->items()->whereNotNull('product_id')->with('product')->get() as $item) {
+            $product = $item->product;
+            if (! $product || ! $product->tracksStock()) {
+                continue;
+            }
+
+            $movement = $this->stock->issueStock($product, (float) $item->quantity, [
+                'source'           => $invoice,
+                'journal_entry_id' => $entry->id,
+                'date'             => $invoice->issue_date,
+                'description'      => "COGS — Invoice {$invoice->invoice_number}",
+            ]);
+
+            $cogs = round(abs((float) $movement->total_cost), 2);
+            if ($cogs <= 0) {
+                continue; // stock still moved; nothing to post at zero cost
+            }
+
+            $cogsAcc = $product->cogs_account_id ?? $this->accountIdByCode($company->id, '5000');
+            $invAcc  = $product->inventory_account_id ?? $this->accountIdByCode($company->id, '1300');
+            if (! $cogsAcc || ! $invAcc) {
+                continue;
+            }
+
+            $cogsByAccount[$cogsAcc] = ($cogsByAccount[$cogsAcc] ?? 0) + $cogs;
+            $invByAccount[$invAcc]   = ($invByAccount[$invAcc] ?? 0) + $cogs;
+        }
+
+        foreach ($cogsByAccount as $accId => $amount) {
+            $lines[] = [
+                'journal_entry_id' => $entry->id,
+                'account_id'       => $accId,
+                'description'      => "COGS — Invoice {$invoice->invoice_number}",
+                'debit'            => round($amount, 2),
+                'credit'           => 0,
+                'contact_id'       => null,
+                'sort_order'       => $sort++,
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ];
+        }
+
+        foreach ($invByAccount as $accId => $amount) {
+            $lines[] = [
+                'journal_entry_id' => $entry->id,
+                'account_id'       => $accId,
+                'description'      => "Inventory relief — Invoice {$invoice->invoice_number}",
+                'debit'            => 0,
+                'credit'           => round($amount, 2),
+                'contact_id'       => null,
+                'sort_order'       => $sort++,
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ];
+        }
+
         \App\Models\JournalLine::insert($lines);
+    }
+
+    private function accountIdByCode(int $companyId, string $code): ?int
+    {
+        return Account::where('company_id', $companyId)->where('code', $code)->value('id');
     }
 
     private function reverseJournalEntry(JournalEntry $original, Invoice $invoice): void

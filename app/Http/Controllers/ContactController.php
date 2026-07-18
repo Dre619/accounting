@@ -57,8 +57,13 @@ class ContactController extends Controller
     {
         $this->authorise($request, $contact);
 
-        $contact->load(['invoices' => fn ($q) => $q->latest()->limit(10),
-                         'bills'   => fn ($q) => $q->latest()->limit(10)]);
+        $contact->load([
+            'invoices' => fn ($q) => $q->latest()->limit(10),
+            'bills'    => fn ($q) => $q->latest()->limit(10),
+            'activities' => fn ($q) => $q->with('user:id,name')->latest('occurred_at')->limit(100),
+            'opportunities' => fn ($q) => $q->latest('id'),
+            'tasks' => fn ($q) => $q->whereNull('completed_at')->with('assignee:id,name')->orderByRaw('due_date is null, due_date asc'),
+        ]);
 
         $stats = [
             'total_invoiced' => $contact->invoices()->whereNotIn('status', ['void', 'draft'])->sum('total'),

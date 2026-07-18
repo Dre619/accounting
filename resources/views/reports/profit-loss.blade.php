@@ -4,34 +4,31 @@
 <meta charset="UTF-8">
 <title>Profit & Loss — {{ $company['name'] }}</title>
 <style>
+@page { margin: 0; }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a2e;background:#fff}
-.print-bar{background:#0f2044;color:#fff;padding:10px 24px;display:flex;align-items:center;justify-content:space-between;print-color-adjust:exact;-webkit-print-color-adjust:exact}
-.print-bar button{background:#f97316;color:#fff;border:none;padding:7px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600}
-.doc{max-width:820px;margin:0 auto;padding:32px 24px}
-h1{font-size:22px;color:#0f2044;margin-bottom:4px}
-.meta{color:#666;font-size:11px;margin-bottom:24px}
-.section{margin-bottom:20px}
-.section-title{background:#0f2044;color:#fff;padding:6px 12px;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+body{font-family:'DejaVu Sans',sans-serif;font-size:12px;color:#1a1a2e}
+.doc{padding:36px 44px 48px}
+h1{font-size:21px;color:#0f2044;margin-bottom:4px}
+.meta{color:#666;font-size:11px;margin-bottom:22px}
+.section{margin-bottom:18px}
+.section-title{background:#0f2044;color:#fff;padding:6px 12px;font-weight:bold;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
 table{width:100%;border-collapse:collapse}
 td,th{padding:5px 10px;border-bottom:1px solid #e5e7eb}
 th{text-align:left;font-size:10px;text-transform:uppercase;color:#6b7280;background:#f9fafb}
-.amount{text-align:right;font-variant-numeric:tabular-nums}
-.total-row td{font-weight:700;border-top:2px solid #0f2044;border-bottom:none}
+.amount{text-align:right}
+.total-row td{font-weight:bold;border-top:2px solid #0f2044;border-bottom:none}
 .income .total-row td{color:#16a34a}
 .expense .total-row td{color:#dc2626}
-.net-row td{font-size:15px;font-weight:800;border-top:3px solid #0f2044;padding:10px}
+.net-row td{font-size:15px;font-weight:bold;border-top:3px solid #0f2044;padding:10px}
 .positive{color:#16a34a}.negative{color:#dc2626}
-@media print{.print-bar{display:none!important}.doc{padding:16px}}
 </style>
 </head>
 <body>
-<div class="print-bar">
-    <span style="font-weight:700;font-size:15px">{{ $company['name'] }} — Profit & Loss</span>
-    <button onclick="window.print()">Print / Save PDF</button>
-</div>
 <div class="doc">
-    <h1>Profit & Loss Statement</h1>
+    @if(!empty($logoSrc))
+        <img src="{{ $logoSrc }}" alt="{{ $company['name'] }}" style="max-height:52px;margin-bottom:12px">
+    @endif
+    <h1>Profit &amp; Loss Statement</h1>
     <p class="meta">{{ $company['name'] }} &nbsp;·&nbsp; Period: {{ \Carbon\Carbon::parse($from)->format('d M Y') }} to {{ \Carbon\Carbon::parse($to)->format('d M Y') }}</p>
 
     <div class="section income">

@@ -14,12 +14,12 @@ class PlanFeatures
         ],
         'growth' => [
             'invoices', 'contacts', 'payments', 'accounts', 'reports_pl',
-            'bills', 'recurring', 'reports_advanced',
+            'bills', 'recurring', 'reports_advanced', 'inventory',
         ],
         'business' => [
             'invoices', 'contacts', 'payments', 'accounts', 'reports_pl',
-            'bills', 'recurring', 'reports_advanced',
-            'journals', 'payroll', 'zra_vsdc',
+            'bills', 'recurring', 'reports_advanced', 'inventory',
+            'journals', 'payroll', 'zra_vsdc', 'crm',
         ],
     ];
 

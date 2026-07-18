@@ -7,6 +7,7 @@ use App\Models\Bill;
 use App\Models\GoodsCode;
 use App\Models\ServiceCode;
 use App\Services\BillService;
+use App\Services\DocumentPdfService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -115,13 +116,18 @@ class BillController extends Controller
         return back()->with('success', 'Bill voided.');
     }
 
-    public function print(Request $request, Bill $bill): \Illuminate\Contracts\View\View
+    public function print(Request $request, Bill $bill, DocumentPdfService $pdf): \Symfony\Component\HttpFoundation\Response
     {
         $this->authorise($request, $bill);
         $bill->load(['contact', 'items.taxRate', 'items.account:id,name,code']);
         $company = $request->user()->currentCompany;
+        $logoSrc = $pdf->logoDataUri($company->logo_path);
 
-        return view('bills.print', compact('bill', 'company'));
+        return $pdf->streamInline(
+            'bills.print',
+            compact('bill', 'company', 'logoSrc'),
+            'Bill-' . ($bill->bill_number ?? $bill->id) . '.pdf',
+        );
     }
 
     public function submitZra(Request $request, Bill $bill): RedirectResponse
@@ -159,6 +165,9 @@ class BillController extends Controller
             'vsdcEnabled'  => (bool) $company->vsdc_initialized,
             'goodsCodes'   => GoodsCode::orderBy('name')->get(['id', 'name', 'hs_code']),
             'serviceCodes' => ServiceCode::orderBy('name')->get(['id', 'name', 'hs_code']),
+            'products'     => $company->products()->active()->orderBy('name')
+                ->get(['id', 'sku', 'name', 'type', 'purchase_account_id',
+                    'tax_rate_id', 'item_type', 'cls_code_id', 'quantity_on_hand', 'average_cost']),
         ];
     }
 
@@ -176,6 +185,7 @@ class BillController extends Controller
             'items.*.id'               => ['nullable', 'integer'],
             'items.*.description'      => ['required', 'string', 'max:255'],
             'items.*.account_id'       => ['nullable', 'integer'],
+            'items.*.product_id'       => ['nullable', 'integer'],
             'items.*.tax_rate_id'      => ['nullable', 'integer'],
             'items.*.quantity'         => ['required', 'numeric', 'min:0.001'],
             'items.*.unit_price'       => ['required', 'numeric', 'min:0'],

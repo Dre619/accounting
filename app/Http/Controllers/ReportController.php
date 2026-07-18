@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\DocumentPdfService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Carbon;
@@ -30,6 +31,16 @@ class ReportController extends Controller
     public function vatSummary(Request $request): Response
     {
         return Inertia::render('reports/VatSummary', $this->vatSummaryData($request));
+    }
+
+    public function inventoryValuation(Request $request): Response
+    {
+        return Inertia::render('reports/InventoryValuation', $this->inventoryValuationData($request));
+    }
+
+    public function stockMovements(Request $request): Response
+    {
+        return Inertia::render('reports/StockMovements', $this->stockMovementsData($request));
     }
 
     public function agedReceivables(Request $request): Response
@@ -132,25 +143,190 @@ class ReportController extends Controller
 
     // ── Print views ──────────────────────────────────────────────────────────
 
-    public function profitLossPrint(Request $request): \Illuminate\Contracts\View\View
+    public function profitLossPrint(Request $request, DocumentPdfService $pdf): \Symfony\Component\HttpFoundation\Response
     {
         $data = $this->profitLossData($request);
-        return view('reports.profit-loss', $data);
+        $data['logoSrc'] = $pdf->logoDataUri($request->user()->currentCompany->logo_path);
+        return $pdf->streamInline('reports.profit-loss', $data, "Profit-Loss-{$data['from']}-to-{$data['to']}.pdf");
     }
 
-    public function balanceSheetPrint(Request $request): \Illuminate\Contracts\View\View
+    public function balanceSheetPrint(Request $request, DocumentPdfService $pdf): \Symfony\Component\HttpFoundation\Response
     {
         $data = $this->balanceSheetData($request);
-        return view('reports.balance-sheet', $data);
+        $data['logoSrc'] = $pdf->logoDataUri($request->user()->currentCompany->logo_path);
+        return $pdf->streamInline('reports.balance-sheet', $data, "Balance-Sheet-{$data['asOf']}.pdf");
     }
 
-    public function vatSummaryPrint(Request $request): \Illuminate\Contracts\View\View
+    public function vatSummaryPrint(Request $request, DocumentPdfService $pdf): \Symfony\Component\HttpFoundation\Response
     {
         $data = $this->vatSummaryData($request);
-        return view('reports.vat-summary', $data);
+        $data['logoSrc'] = $pdf->logoDataUri($request->user()->currentCompany->logo_path);
+        return $pdf->streamInline('reports.vat-summary', $data, "VAT-Summary-{$data['from']}-to-{$data['to']}.pdf");
+    }
+
+    /**
+     * Stock on hand valued at weighted-average cost, reconciled against the
+     * 1300 Inventory control account balance in the general ledger.
+     */
+    private function inventoryValuationData(Request $request): array
+    {
+        $company = $request->user()->currentCompany;
+
+        $rows = $company->products()
+            ->where('type', 'inventory')
+            ->orderBy('name')
+            ->get(['id', 'sku', 'name', 'quantity_on_hand', 'average_cost'])
+            ->map(function ($p) {
+                $qty = (float) $p->quantity_on_hand;
+                $avg = (float) $p->average_cost;
+
+                return [
+                    'id'           => $p->id,
+                    'sku'          => $p->sku,
+                    'name'         => $p->name,
+                    'quantity'     => $qty,
+                    'average_cost' => $avg,
+                    'value'        => round($qty * $avg, 2),
+                ];
+            })
+            ->values();
+
+        $totalValue = round($rows->sum('value'), 2);
+
+        $inventoryAccount = $company->accounts()->where('code', '1300')->first();
+        $glBalance = $inventoryAccount ? round((float) $inventoryAccount->balance, 2) : null;
+
+        return [
+            'rows'        => $rows,
+            'totalValue'  => $totalValue,
+            'glBalance'   => $glBalance,
+            'variance'    => $glBalance !== null ? round($totalValue - $glBalance, 2) : null,
+            'generatedAt' => now()->toDateString(),
+            'company'     => $company->only('name', 'address', 'city', 'tpin'),
+        ];
+    }
+
+    /**
+     * A filterable audit trail of every stock movement in a period, with in/out
+     * totals. Filter by product, movement type and date range.
+     */
+    private function stockMovementsData(Request $request): array
+    {
+        $company = $request->user()->currentCompany;
+
+        $from = $request->filled('from')
+            ? Carbon::parse($request->input('from'))->toDateString()
+            : now()->startOfMonth()->toDateString();
+        $to = $request->filled('to')
+            ? Carbon::parse($request->input('to'))->toDateString()
+            : now()->toDateString();
+
+        $productId = $request->integer('product_id') ?: null;
+        $type      = $request->query('type', 'all');
+
+        $movements = \App\Models\StockMovement::where('company_id', $company->id)
+            ->whereDate('movement_date', '>=', $from)
+            ->whereDate('movement_date', '<=', $to)
+            ->when($productId, fn ($q) => $q->where('product_id', $productId))
+            ->when($type !== 'all', fn ($q) => $q->where('type', $type))
+            ->with('product:id,name,sku')
+            ->orderBy('movement_date')
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($m) => [
+                'id'         => $m->id,
+                'date'       => $m->movement_date->toDateString(),
+                'product'    => $m->product?->name ?? '—',
+                'sku'        => $m->product?->sku,
+                'type'       => $m->type,
+                'quantity'   => (float) $m->quantity,
+                'unit_cost'  => (float) $m->unit_cost,
+                'value'      => (float) $m->total_cost,
+                'balance'    => (float) $m->running_qty,
+                'note'       => $m->description,
+            ])
+            ->values();
+
+        $qtyIn    = $movements->where('quantity', '>', 0)->sum('quantity');
+        $qtyOut   = $movements->where('quantity', '<', 0)->sum('quantity');
+        $valueIn  = round($movements->where('quantity', '>', 0)->sum('value'), 2);
+        $valueOut = round($movements->where('quantity', '<', 0)->sum('value'), 2);
+
+        return [
+            'movements' => $movements,
+            'filters'   => [
+                'from'       => $from,
+                'to'         => $to,
+                'product_id' => $productId,
+                'type'       => $type,
+            ],
+            'products'  => $company->products()->where('type', 'inventory')
+                ->orderBy('name')->get(['id', 'name']),
+            'totals'    => [
+                'qty_in'    => round((float) $qtyIn, 3),
+                'qty_out'   => round((float) $qtyOut, 3),
+                'value_in'  => $valueIn,
+                'value_out' => $valueOut,
+            ],
+        ];
     }
 
     // ── CSV exports ───────────────────────────────────────────────────────────
+
+    public function stockMovementsCsv(Request $request): StreamedResponse
+    {
+        $data = $this->stockMovementsData($request);
+        $filename = "stock-movements-{$data['filters']['from']}-to-{$data['filters']['to']}.csv";
+
+        return response()->streamDownload(function () use ($data) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Stock Movements']);
+            fputcsv($out, ['Period:', $data['filters']['from'] . ' to ' . $data['filters']['to']]);
+            fputcsv($out, []);
+            fputcsv($out, ['Date', 'Product', 'SKU', 'Type', 'Quantity', 'Unit Cost', 'Value', 'Balance', 'Note']);
+            foreach ($data['movements'] as $m) {
+                fputcsv($out, [
+                    $m['date'], $m['product'], $m['sku'], $m['type'],
+                    $m['quantity'], number_format($m['unit_cost'], 4, '.', ''),
+                    number_format($m['value'], 2, '.', ''), $m['balance'], $m['note'],
+                ]);
+            }
+            fputcsv($out, []);
+            fputcsv($out, ['', '', '', 'Total in', $data['totals']['qty_in'], '', number_format($data['totals']['value_in'], 2, '.', '')]);
+            fputcsv($out, ['', '', '', 'Total out', $data['totals']['qty_out'], '', number_format($data['totals']['value_out'], 2, '.', '')]);
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
+    public function inventoryValuationCsv(Request $request): StreamedResponse
+    {
+        $data = $this->inventoryValuationData($request);
+        $filename = "inventory-valuation-{$data['generatedAt']}.csv";
+
+        return response()->streamDownload(function () use ($data) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Inventory Valuation']);
+            fputcsv($out, ['As of:', $data['generatedAt']]);
+            fputcsv($out, []);
+            fputcsv($out, ['SKU', 'Product', 'Quantity', 'Avg Cost (ZMW)', 'Value (ZMW)']);
+            foreach ($data['rows'] as $row) {
+                fputcsv($out, [
+                    $row['sku'],
+                    $row['name'],
+                    $row['quantity'],
+                    number_format($row['average_cost'], 4, '.', ''),
+                    number_format($row['value'], 2, '.', ''),
+                ]);
+            }
+            fputcsv($out, []);
+            fputcsv($out, ['', '', '', 'Total stock value', number_format($data['totalValue'], 2, '.', '')]);
+            if ($data['glBalance'] !== null) {
+                fputcsv($out, ['', '', '', 'GL Inventory (1300)', number_format($data['glBalance'], 2, '.', '')]);
+                fputcsv($out, ['', '', '', 'Variance', number_format($data['variance'], 2, '.', '')]);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv']);
+    }
 
     public function profitLossCsv(Request $request): StreamedResponse
     {
