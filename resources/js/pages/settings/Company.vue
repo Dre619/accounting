@@ -23,6 +23,7 @@ interface Company {
     country: string | null;
     financial_year_end: string;
     invoice_prefix: string;
+    tax_regime: string;
     logo_path: string | null;
     vsdc_url: string | null;
     vsdc_bhf_id: string | null;
@@ -44,6 +45,7 @@ const form = useForm({
     city:               props.company.city ?? '',
     financial_year_end: props.company.financial_year_end ?? '12-31',
     invoice_prefix:     props.company.invoice_prefix ?? 'INV-',
+    tax_regime:         props.company.tax_regime ?? 'standard',
     logo:               null as File | null,
     vsdc_url:           props.company.vsdc_url ?? '',
     vsdc_bhf_id:        props.company.vsdc_bhf_id ?? '',
@@ -161,6 +163,19 @@ function submit() {
                                     placeholder="INV-" maxlength="10" />
                                 <p class="text-xs text-muted-foreground">Prefix for invoice numbers (e.g. INV-, 2024-)</p>
                                 <InputError :message="form.errors.invoice_prefix" />
+                            </div>
+                            <div class="grid gap-2 md:col-span-2">
+                                <Label for="tax_regime">Tax Regime <span class="text-destructive">*</span></Label>
+                                <select id="tax_regime" v-model="form.tax_regime"
+                                    class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                                    <option value="standard">Standard — VAT &amp; Income Tax</option>
+                                    <option value="turnover">Turnover Tax (TOT)</option>
+                                </select>
+                                <p class="text-xs text-muted-foreground">
+                                    Turnover Tax is a final tax in lieu of income tax for businesses under the ZRA threshold.
+                                    Selecting it removes VAT from invoices and enables the Turnover Tax return under Reports.
+                                </p>
+                                <InputError :message="form.errors.tax_regime" />
                             </div>
                         </div>
                     </div>
