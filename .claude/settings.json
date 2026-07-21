@@ -22,7 +22,8 @@
       "Bash(php artisan *)",
       "Bash(git stash *)",
       "Bash(git config *)",
-      "Bash(cat > *)"
+      "Bash(cat > *)",
+      "Bash(php -l database/migrations/2026_07_18_000010_add_effective_dates_to_tax_rates.php)"
     ],
     "additionalDirectories": [
       "\\tmp"
