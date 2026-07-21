@@ -124,11 +124,10 @@ class PayrollService
     private function postJournal(PayrollRun $run): void
     {
         $company = $run->company;
-        $seq     = $company->journalEntries()->count() + 1;
 
         $entry = JournalEntry::create([
             'company_id'      => $company->id,
-            'entry_number'    => 'JNL-' . str_pad($seq, 4, '0', STR_PAD_LEFT),
+            'entry_number'    => $company->nextJournalEntryNumber(),
             'entry_date'      => $run->period_end,
             'description'     => "Payroll — {$run->period}",
             'status'          => 'posted',

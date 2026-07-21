@@ -137,10 +137,9 @@ class StockService
                 return;
             }
 
-            $seq   = $company->journalEntries()->count() + 1;
             $entry = JournalEntry::create([
                 'company_id'      => $company->id,
-                'entry_number'    => 'JNL-' . str_pad((string) $seq, 4, '0', STR_PAD_LEFT),
+                'entry_number'    => $company->nextJournalEntryNumber(),
                 'entry_date'      => $date ?? now()->toDateString(),
                 'description'     => "Opening stock — {$product->name}",
                 'status'          => 'posted',
@@ -268,10 +267,9 @@ class StockService
             return null; // chart of accounts missing the needed accounts
         }
 
-        $seq   = $company->journalEntries()->count() + 1;
         $entry = JournalEntry::create([
             'company_id'      => $company->id,
-            'entry_number'    => 'JNL-' . str_pad((string) $seq, 4, '0', STR_PAD_LEFT),
+            'entry_number'    => $company->nextJournalEntryNumber(),
             'entry_date'      => $opts['date'] ?? now()->toDateString(),
             'description'     => "Stock adjustment — {$product->name}",
             'status'          => 'posted',

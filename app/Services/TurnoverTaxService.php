@@ -96,11 +96,10 @@ class TurnoverTaxService
         abort_if(! $expenseId || ! $payableId, 422, 'Turnover tax accounts (8000 / 2150) are missing from the chart of accounts.');
 
         return DB::transaction(function () use ($company, $computed, $from, $to, $expenseId, $payableId) {
-            $seq = $company->journalEntries()->count() + 1;
 
             $entry = JournalEntry::create([
                 'company_id'   => $company->id,
-                'entry_number' => 'JNL-' . str_pad((string) $seq, 4, '0', STR_PAD_LEFT),
+                'entry_number' => $company->nextJournalEntryNumber(),
                 'entry_date'   => $to,
                 'description'  => "Turnover tax — {$from} to {$to}",
                 'status'       => 'posted',

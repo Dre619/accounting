@@ -153,9 +153,7 @@ class SalesOrderService
 
     private function nextNumber(Company $company): string
     {
-        $seq = $company->salesOrders()->withTrashed()->count() + 1;
-
-        return 'SO-' . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
+        return $company->nextSalesOrderNumber();
     }
 
     private function syncItems(SalesOrder $order, array $items): void

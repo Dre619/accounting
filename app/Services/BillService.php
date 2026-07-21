@@ -140,11 +140,10 @@ class BillService
     private function createJournalEntry(Bill $bill): void
     {
         $company = $bill->company;
-        $seq     = $company->journalEntries()->count() + 1;
 
         $entry = JournalEntry::create([
             'company_id'      => $company->id,
-            'entry_number'    => 'JNL-' . str_pad($seq, 4, '0', STR_PAD_LEFT),
+            'entry_number'    => $company->nextJournalEntryNumber(),
             'entry_date'      => $bill->issue_date,
             'description'     => "Bill {$bill->bill_number} — {$bill->contact->name}",
             'status'          => 'posted',
@@ -237,11 +236,10 @@ class BillService
     private function reverseJournalEntry(JournalEntry $original, Bill $bill): void
     {
         $company = $bill->company;
-        $seq     = $company->journalEntries()->count() + 1;
 
         $reversal = JournalEntry::create([
             'company_id'      => $company->id,
-            'entry_number'    => 'JNL-' . str_pad($seq, 4, '0', STR_PAD_LEFT),
+            'entry_number'    => $company->nextJournalEntryNumber(),
             'entry_date'      => now()->toDateString(),
             'description'     => "Void reversal — Bill {$bill->bill_number}",
             'status'          => 'posted',

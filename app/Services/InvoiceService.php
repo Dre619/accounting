@@ -81,6 +81,15 @@ class InvoiceService
     {
         abort_unless(! in_array($invoice->status, ['paid', 'void']), 422, 'Cannot void a paid or already voided invoice.');
 
+        // Voiding reverses the full invoice, but any payment already received still
+        // credits receivables — which would leave AR negative by the amount paid.
+        // Checked on amount_paid rather than status so partial/overdue are both covered.
+        abort_if(
+            (float) $invoice->amount_paid > 0,
+            422,
+            'This invoice has payments allocated to it. Unallocate or refund the payment before voiding.'
+        );
+
         $invoice->update([
             'status'     => 'void',
             'voided_at'  => now(),
@@ -171,11 +180,10 @@ class InvoiceService
     private function createJournalEntry(Invoice $invoice): void
     {
         $company = $invoice->company;
-        $seq     = $company->journalEntries()->count() + 1;
 
         $entry = JournalEntry::create([
             'company_id'       => $company->id,
-            'entry_number'     => 'JNL-' . str_pad($seq, 4, '0', STR_PAD_LEFT),
+            'entry_number'     => $company->nextJournalEntryNumber(),
             'entry_date'       => $invoice->issue_date,
             'description'      => "Invoice {$invoice->invoice_number} — {$invoice->contact->name}",
             'status'           => 'posted',
@@ -318,11 +326,10 @@ class InvoiceService
     private function reverseJournalEntry(JournalEntry $original, Invoice $invoice): void
     {
         $company = $invoice->company;
-        $seq     = $company->journalEntries()->count() + 1;
 
         $reversal = JournalEntry::create([
             'company_id'       => $company->id,
-            'entry_number'     => 'JNL-' . str_pad($seq, 4, '0', STR_PAD_LEFT),
+            'entry_number'     => $company->nextJournalEntryNumber(),
             'entry_date'       => now()->toDateString(),
             'description'      => "Void reversal — Invoice {$invoice->invoice_number}",
             'status'           => 'posted',

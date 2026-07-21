@@ -79,8 +79,9 @@ class JournalEntryController extends Controller
         }
 
         DB::transaction(function () use ($company, $data, $request) {
-            $count       = JournalEntry::where('company_id', $company->id)->where('source', 'manual')->count();
-            $entryNumber = 'JNL-' . str_pad($count + 1, 4, '0', STR_PAD_LEFT);
+            // Numbering is shared across every source, so it must not be derived
+            // from a count of manual entries alone.
+            $entryNumber = $company->nextJournalEntryNumber();
 
             $entry = JournalEntry::create([
                 'company_id'   => $company->id,

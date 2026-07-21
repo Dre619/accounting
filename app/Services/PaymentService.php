@@ -172,12 +172,11 @@ class PaymentService
 
     private function createJournalEntry(Payment $payment, Company $company, bool $hasAllocations): void
     {
-        $seq   = $company->journalEntries()->count() + 1;
         $label = $payment->type === 'receipt' ? 'Receipt' : 'Payment';
 
         $entry = JournalEntry::create([
             'company_id'      => $company->id,
-            'entry_number'    => 'JNL-' . str_pad($seq, 4, '0', STR_PAD_LEFT),
+            'entry_number'    => $company->nextJournalEntryNumber(),
             'entry_date'      => $payment->payment_date,
             'description'     => "{$label} {$payment->payment_number}"
                 . ($payment->contact ? " — {$payment->contact->name}" : ''),
@@ -256,11 +255,10 @@ class PaymentService
             return; // AP payments post correctly already
         }
 
-        $seq = $company->journalEntries()->count() + 1;
 
         $entry = JournalEntry::create([
             'company_id'      => $company->id,
-            'entry_number'    => 'JNL-' . str_pad($seq, 4, '0', STR_PAD_LEFT),
+            'entry_number'    => $company->nextJournalEntryNumber(),
             'entry_date'      => now()->toDateString(),
             'description'     => "Allocation — {$payment->payment_number}"
                 . ($payment->contact ? " — {$payment->contact->name}" : ''),
@@ -297,11 +295,10 @@ class PaymentService
     private function reverseJournalEntry(JournalEntry $original, Payment $payment): void
     {
         $company = $payment->company;
-        $seq     = $company->journalEntries()->count() + 1;
 
         $reversal = JournalEntry::create([
             'company_id'      => $company->id,
-            'entry_number'    => 'JNL-' . str_pad($seq, 4, '0', STR_PAD_LEFT),
+            'entry_number'    => $company->nextJournalEntryNumber(),
             'entry_date'      => now()->toDateString(),
             'description'     => "Reversal — {$original->description}",
             'status'          => 'posted',

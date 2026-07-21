@@ -144,9 +144,7 @@ class PurchaseOrderService
 
     private function nextNumber(Company $company): string
     {
-        $seq = $company->purchaseOrders()->withTrashed()->count() + 1;
-
-        return 'PO-' . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
+        return $company->nextPurchaseOrderNumber();
     }
 
     private function syncItems(PurchaseOrder $po, array $items): void

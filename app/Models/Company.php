@@ -221,6 +221,69 @@ class Company extends Model
     }
 
     /**
+     * Next journal entry number for this company, e.g. "JNL-0007".
+     *
+     * Derived from the highest number ever issued INCLUDING soft-deleted entries:
+     * journal_entries is soft-deleting but unique(company_id, entry_number) still
+     * counts trashed rows, so numbering from a live count() reuses a taken slot
+     * and raises a duplicate key error. The loop also steps over any gaps or
+     * duplicates left by the previous count-based scheme.
+     */
+    public function nextJournalEntryNumber(): string
+    {
+        return $this->nextDocumentNumber(
+            fn () => $this->journalEntries()->withTrashed(), 'entry_number', 'JNL-'
+        );
+    }
+
+    /** Next purchase order number, e.g. "PO-0007". */
+    public function nextPurchaseOrderNumber(): string
+    {
+        return $this->nextDocumentNumber(
+            fn () => $this->purchaseOrders()->withTrashed(), 'po_number', 'PO-'
+        );
+    }
+
+    /** Next sales order / quotation number, e.g. "SO-0007". */
+    public function nextSalesOrderNumber(): string
+    {
+        return $this->nextDocumentNumber(
+            fn () => $this->salesOrders()->withTrashed(), 'order_number', 'SO-'
+        );
+    }
+
+    /**
+     * Sequential document numbering that survives deletion.
+     *
+     * Counting rows is unsafe: a soft delete lowers the count while the number
+     * stays taken, and a force delete leaves a gap the count then reissues. So
+     * take the highest number ever issued and step past anything already used.
+     * Ordering by length first keeps it correct beyond four digits.
+     *
+     * @param  \Closure():\Illuminate\Database\Eloquent\Builder  $query
+     */
+    private function nextDocumentNumber(\Closure $query, string $column, string $prefix): string
+    {
+        $last = $query()
+            ->orderByRaw("LENGTH({$column}) DESC")
+            ->orderBy($column, 'DESC')
+            ->value($column);
+
+        $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;
+
+        while ($query()->where($column, $this->formatDocumentNumber($prefix, $next))->exists()) {
+            $next++;
+        }
+
+        return $this->formatDocumentNumber($prefix, $next);
+    }
+
+    private function formatDocumentNumber(string $prefix, int $sequence): string
+    {
+        return $prefix . str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
      * Generate the next invoice number and increment the sequence.
      */
     public function nextInvoiceNumber(): string
