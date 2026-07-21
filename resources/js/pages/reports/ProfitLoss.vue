@@ -18,8 +18,11 @@ interface AccountLine {
 const props = defineProps<{
     income: AccountLine[];
     expenses: AccountLine[];
+    taxes: AccountLine[];
     totalIncome: number;
     totalExpenses: number;
+    profitBeforeTax: number;
+    totalTax: number;
     netProfit: number;
     from: string;
     to: string;
@@ -131,10 +134,34 @@ function fmt(v: number) {
                 </CardContent>
             </Card>
 
+            <!-- Taxation (below operating profit) -->
+            <Card v-if="taxes.length">
+                <CardHeader><CardTitle>Taxation</CardTitle></CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableBody>
+                            <TableRow class="bg-muted/40">
+                                <TableCell colspan="2" class="font-medium">Profit Before Tax</TableCell>
+                                <TableCell class="text-right font-bold">{{ fmt(profitBeforeTax) }}</TableCell>
+                            </TableRow>
+                            <TableRow v-for="row in taxes" :key="row.code">
+                                <TableCell class="font-mono text-xs text-muted-foreground">{{ row.code }}</TableCell>
+                                <TableCell>{{ row.name }}</TableCell>
+                                <TableCell class="text-right">{{ fmt(row.balance) }}</TableCell>
+                            </TableRow>
+                            <TableRow class="bg-muted/40">
+                                <TableCell colspan="2" class="text-right font-bold">Total Tax</TableCell>
+                                <TableCell class="text-right font-bold text-red-600">{{ fmt(totalTax) }}</TableCell>
+                            </TableRow>
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+
             <!-- Net Profit summary -->
             <Card :class="netProfit >= 0 ? 'border-green-200 bg-green-50 dark:bg-green-950/20' : 'border-red-200 bg-red-50 dark:bg-red-950/20'">
                 <CardContent class="py-4 flex items-center justify-between">
-                    <span class="font-bold text-lg">Net Profit</span>
+                    <span class="font-bold text-lg">Net Profit{{ taxes.length ? ' After Tax' : '' }}</span>
                     <span class="font-black text-2xl" :class="netProfit >= 0 ? 'text-green-600' : 'text-red-600'">
                         {{ fmt(netProfit) }}
                     </span>

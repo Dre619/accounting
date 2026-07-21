@@ -61,6 +61,7 @@ class CompanyProvisioningService
         $make('1200', 'Accounts Receivable',     'asset', 'current_asset', 'Current Assets');
         $make('1300', 'Inventory',               'asset', 'current_asset', 'Current Assets');
         $make('1400', 'Prepaid Expenses',        'asset', 'current_asset', 'Current Assets');
+        $make('1450', 'Provisional Tax Paid',     'asset', 'current_asset', 'Current Assets');
         $make('1500', 'VAT Receivable (Input)',  'asset', 'current_asset', 'Current Assets');
         $make('1600', 'WHT Receivable',          'asset', 'current_asset', 'Current Assets');
         $make('1900', 'Property & Equipment',    'asset', 'fixed_asset',   'Fixed Assets');
@@ -70,7 +71,9 @@ class CompanyProvisioningService
         $make('2000', 'Accounts Payable',        'liability', 'current_liability', 'Current Liabilities');
         $make('2050', 'Customer Deposits',       'liability', 'current_liability', 'Current Liabilities');
         $make('2100', 'VAT Payable (Output)',     'liability', 'current_liability', 'Current Liabilities');
+        $make('2150', 'Turnover Tax Payable',    'liability', 'current_liability', 'Current Liabilities');
         $make('2200', 'WHT Payable',             'liability', 'current_liability', 'Current Liabilities');
+        $make('2250', 'Income Tax Payable',      'liability', 'current_liability', 'Current Liabilities');
         $make('2300', 'PAYE Payable',            'liability', 'current_liability', 'Current Liabilities');
         $make('2400', 'NAPSA Payable',           'liability', 'current_liability', 'Current Liabilities');
         $make('2450', 'NHIMA Payable',           'liability', 'current_liability', 'Current Liabilities');
@@ -107,6 +110,10 @@ class CompanyProvisioningService
         $make('6800', 'Depreciation',            'expense', 'operating_expense', 'Operating Expenses');
         $make('6900', 'Professional Fees',       'expense', 'operating_expense', 'Operating Expenses');
         $make('6950', 'Insurance',               'expense', 'operating_expense', 'Operating Expenses');
+
+        // ── Taxation (presented below operating profit) ───────────────────────
+        $make('8000', 'Turnover Tax Expense',    'expense', 'taxation', 'Taxation');
+        $make('8100', 'Income Tax Expense',      'expense', 'taxation', 'Taxation');
 
         // ── Other Expenses ────────────────────────────────────────────────────
         $make('7000', 'Interest Expense',        'expense', 'other_expense', 'Other Expenses');

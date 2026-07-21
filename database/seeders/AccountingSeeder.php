@@ -30,6 +30,7 @@ class AccountingSeeder extends Seeder
             ['name' => 'Cost of Sales',       'type' => 'expense',   'sort_order' => 90],
             ['name' => 'Operating Expenses',  'type' => 'expense',   'sort_order' => 100],
             ['name' => 'Other Expenses',      'type' => 'expense',   'sort_order' => 110],
+            ['name' => 'Taxation',            'type' => 'expense',   'sort_order' => 120],
         ];
 
         foreach ($categories as $category) {

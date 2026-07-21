@@ -24,6 +24,7 @@ class Company extends Model
         'city',
         'country',
         'currency',
+        'tax_regime',
         'financial_year_end',
         'invoice_prefix',
         'invoice_sequence',
@@ -202,6 +203,12 @@ class Company extends Model
     public function canAccess(): bool
     {
         return $this->isOnTrial() || $this->hasActiveSubscription();
+    }
+
+    /** True when the company files Turnover Tax instead of VAT + income tax. */
+    public function isOnTurnoverTax(): bool
+    {
+        return $this->tax_regime === 'turnover';
     }
 
     public function isVsdcReady(): bool

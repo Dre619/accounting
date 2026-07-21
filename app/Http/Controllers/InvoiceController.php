@@ -190,9 +190,12 @@ class InvoiceController extends Controller
             'accounts'     => $company->accounts()->active()->ofType('income')
                 ->orderBy('code')
                 ->get(['id', 'code', 'name']),
-            'taxRates'     => $company->taxRates()->active()->vat()
-                ->orderBy('name')
-                ->get(['id', 'name', 'code', 'rate']),
+            // Businesses on turnover tax are not VAT registered, so no VAT is offered.
+            'taxRates'     => $company->isOnTurnoverTax()
+                ? collect()
+                : $company->taxRates()->active()->vat()
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'code', 'rate']),
             'vsdcEnabled'  => (bool) $company->vsdc_initialized,
             'goodsCodes'   => GoodsCode::orderBy('name')->get(['id', 'name', 'hs_code']),
             'serviceCodes' => ServiceCode::orderBy('name')->get(['id', 'name', 'hs_code']),

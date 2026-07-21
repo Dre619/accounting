@@ -133,6 +133,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::delete('{entry}', [JournalEntryController::class, 'destroy'])->name('destroy');
             });
 
+            // Tax — turnover tax return (available on all plans; gated by regime in the UI)
+            Route::get('tax/turnover', [\App\Http\Controllers\TaxController::class, 'turnoverTax'])->name('tax.turnover');
+            Route::post('tax/turnover/post', [\App\Http\Controllers\TaxController::class, 'postTurnoverTax'])->name('tax.turnover.post');
+            Route::post('tax/turnover/rates', [\App\Http\Controllers\TaxController::class, 'storeRate'])->name('tax.turnover.rates.store');
+            Route::delete('tax/turnover/rates/{taxRate}', [\App\Http\Controllers\TaxController::class, 'destroyRate'])->name('tax.turnover.rates.destroy');
+
             // Reports
             Route::prefix('reports')->name('reports.')->group(function () {
                 Route::get('/', [ReportController::class, 'index'])->name('index');

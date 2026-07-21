@@ -13,9 +13,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        return Inertia::render('reports/Index');
+        return Inertia::render('reports/Index', [
+            'taxRegime' => $request->user()->currentCompany->tax_regime,
+        ]);
     }
 
     public function profitLoss(Request $request): Response
@@ -352,7 +354,17 @@ class ReportController extends Controller
             }
             fputcsv($out, ['', 'Total Expenses', number_format($data['totalExpenses'], 2, '.', '')]);
             fputcsv($out, []);
-            fputcsv($out, ['', 'Net Profit / (Loss)', number_format($data['netProfit'], 2, '.', '')]);
+            fputcsv($out, ['', 'Profit Before Tax', number_format($data['profitBeforeTax'], 2, '.', '')]);
+            if ($data['taxes']) {
+                fputcsv($out, []);
+                fputcsv($out, ['TAXATION']);
+                foreach ($data['taxes'] as $row) {
+                    fputcsv($out, [$row['code'], $row['name'], number_format($row['balance'], 2, '.', '')]);
+                }
+                fputcsv($out, ['', 'Total Tax', number_format($data['totalTax'], 2, '.', '')]);
+            }
+            fputcsv($out, []);
+            fputcsv($out, ['', 'Net Profit / (Loss) After Tax', number_format($data['netProfit'], 2, '.', '')]);
             fclose($out);
         }, $filename, ['Content-Type' => 'text/csv']);
     }
@@ -453,27 +465,44 @@ class ReportController extends Controller
             ->where('journal_entries.company_id', $companyId)
             ->where('journal_entries.status', 'posted')
             ->whereIn('accounts.type', ['income', 'expense'])
-            ->whereBetween('journal_entries.entry_date', [$from->toDateString(), $to->toDateString()])
+            ->whereDate('journal_entries.entry_date', '>=', $from->toDateString())
+            ->whereDate('journal_entries.entry_date', '<=', $to->toDateString())
             ->whereNull('journal_entries.deleted_at')->whereNull('accounts.deleted_at')
             ->selectRaw('accounts.id, accounts.code, accounts.name, accounts.type, accounts.subtype, SUM(journal_lines.debit) as total_debit, SUM(journal_lines.credit) as total_credit')
             ->groupBy('accounts.id', 'accounts.code', 'accounts.name', 'accounts.type', 'accounts.subtype')
             ->orderBy('accounts.code')->get();
 
-        $income = $expenses = [];
+        // Taxation accounts are reported below operating profit, not mixed into
+        // operating expenses — otherwise the profit that tax is computed from
+        // would itself include the tax charge.
+        $income = $expenses = $taxes = [];
         foreach ($rows as $row) {
             $balance = $row->type === 'income'
                 ? round($row->total_credit - $row->total_debit, 2)
                 : round($row->total_debit - $row->total_credit, 2);
             $data = ['code' => $row->code, 'name' => $row->name, 'subtype' => $row->subtype, 'balance' => $balance];
-            $row->type === 'income' ? $income[] = $data : $expenses[] = $data;
+
+            if ($row->type === 'income') {
+                $income[] = $data;
+            } elseif ($row->subtype === 'taxation') {
+                $taxes[] = $data;
+            } else {
+                $expenses[] = $data;
+            }
         }
 
-        $totalIncome   = array_sum(array_column($income, 'balance'));
-        $totalExpenses = array_sum(array_column($expenses, 'balance'));
+        $totalIncome     = array_sum(array_column($income, 'balance'));
+        $totalExpenses   = array_sum(array_column($expenses, 'balance'));
+        $totalTax        = array_sum(array_column($taxes, 'balance'));
+        $profitBeforeTax = round($totalIncome - $totalExpenses, 2);
+
         return [
-            'income' => $income, 'expenses' => $expenses,
+            'income' => $income, 'expenses' => $expenses, 'taxes' => $taxes,
             'totalIncome' => round($totalIncome, 2), 'totalExpenses' => round($totalExpenses, 2),
-            'netProfit' => round($totalIncome - $totalExpenses, 2),
+            'profitBeforeTax' => $profitBeforeTax,
+            'totalTax' => round($totalTax, 2),
+            // netProfit remains the bottom line — now after tax.
+            'netProfit' => round($profitBeforeTax - $totalTax, 2),
             'from' => $from->toDateString(), 'to' => $to->toDateString(),
             'company' => $company->only('name', 'currency'),
         ];
@@ -490,7 +519,7 @@ class ReportController extends Controller
             ->join('accounts', 'accounts.id', '=', 'journal_lines.account_id')
             ->where('journal_entries.company_id', $companyId)->where('journal_entries.status', 'posted')
             ->whereIn('accounts.type', ['income', 'expense'])
-            ->where('journal_entries.entry_date', '<=', $asOf->toDateString())
+            ->whereDate('journal_entries.entry_date', '<=', $asOf->toDateString())
             ->whereNull('journal_entries.deleted_at')->whereNull('accounts.deleted_at')
             ->selectRaw('accounts.type, SUM(journal_lines.debit) as total_debit, SUM(journal_lines.credit) as total_credit')
             ->groupBy('accounts.type')->get()->keyBy('type');
@@ -504,7 +533,7 @@ class ReportController extends Controller
             ->join('accounts', 'accounts.id', '=', 'journal_lines.account_id')
             ->where('journal_entries.company_id', $companyId)->where('journal_entries.status', 'posted')
             ->whereIn('accounts.type', ['asset', 'liability', 'equity'])
-            ->where('journal_entries.entry_date', '<=', $asOf->toDateString())
+            ->whereDate('journal_entries.entry_date', '<=', $asOf->toDateString())
             ->whereNull('journal_entries.deleted_at')->whereNull('accounts.deleted_at')
             ->selectRaw('accounts.id, accounts.code, accounts.name, accounts.type, accounts.subtype, accounts.opening_balance, SUM(journal_lines.debit) as total_debit, SUM(journal_lines.credit) as total_credit')
             ->groupBy('accounts.id', 'accounts.code', 'accounts.name', 'accounts.type', 'accounts.subtype', 'accounts.opening_balance')
@@ -551,13 +580,15 @@ class ReportController extends Controller
 
         $invoices = DB::table('invoices')->where('company_id', $companyId)
             ->whereNotIn('status', ['void', 'draft'])
-            ->whereBetween('issue_date', [$from->toDateString(), $to->toDateString()])
+            ->whereDate('issue_date', '>=', $from->toDateString())
+            ->whereDate('issue_date', '<=', $to->toDateString())
             ->whereNull('deleted_at')->orderBy('issue_date')
             ->get(['id', 'invoice_number', 'issue_date', 'subtotal', 'tax_amount', 'total']);
 
         $bills = DB::table('bills')->where('company_id', $companyId)
             ->whereNotIn('status', ['void', 'draft'])
-            ->whereBetween('issue_date', [$from->toDateString(), $to->toDateString()])
+            ->whereDate('issue_date', '>=', $from->toDateString())
+            ->whereDate('issue_date', '<=', $to->toDateString())
             ->whereNull('deleted_at')->orderBy('issue_date')
             ->get(['id', 'bill_number', 'issue_date', 'subtotal', 'tax_amount', 'total']);
 

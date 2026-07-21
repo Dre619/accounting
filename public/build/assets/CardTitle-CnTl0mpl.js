@@ -1,0 +1,1 @@
+import{Ct as e,T as t,W as n,k as r,q as i,xt as a}from"./index.esm-D2hpCwNn.js";import{n as o}from"./button-BzR6DvOT.js";var s=r({__name:`CardTitle`,props:{class:{type:[Boolean,null,String,Object,Array]}},setup(r){let s=r;return(r,c)=>(n(),t(`h3`,{"data-slot":`card-title`,class:e(a(o)(`leading-none font-semibold`,s.class))},[i(r.$slots,`default`)],2))}});export{s as t};

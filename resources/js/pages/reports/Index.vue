@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { ArrowLeftRight, BarChart3, BookOpen, Clock, FileText, Package, TrendingUp } from 'lucide-vue-next';
+import { ArrowLeftRight, BarChart3, BookOpen, Clock, FileText, Landmark, Package, TrendingUp } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/AppLayout.vue';
 import * as reports from '@/routes/reports';
+
+const props = defineProps<{ taxRegime?: string }>();
 
 const page = usePage();
 const features = computed(() => (page.props.planFeatures as string[]) ?? []);
@@ -40,6 +42,12 @@ const reportCards = computed(() => [
         icon: BarChart3,
         href: reports.agedPayables.url(),
     },
+    ...(props.taxRegime === 'turnover' ? [{
+        title: 'Turnover Tax Return',
+        description: 'Monthly gross turnover and tax due, ready to post to the ledger.',
+        icon: Landmark,
+        href: '/tax/turnover',
+    }] : []),
     ...(features.value.includes('inventory') ? [{
         title: 'Inventory Valuation',
         description: 'Stock on hand valued at average cost, reconciled to the ledger.',

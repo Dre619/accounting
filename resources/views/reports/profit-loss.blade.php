@@ -63,10 +63,25 @@ th{text-align:left;font-size:10px;text-transform:uppercase;color:#6b7280;backgro
         </table>
     </div>
 
+    @if(!empty($taxes))
+    <div>
+        <table>
+            <thead><tr><th>Taxation</th><th class="amount">Amount (ZMW)</th></tr></thead>
+            <tbody>
+            <tr class="total-row"><td>Profit Before Tax</td><td class="amount">{{ number_format($profitBeforeTax, 2) }}</td></tr>
+            @foreach($taxes as $row)
+                <tr><td>{{ $row['code'] }} — {{ $row['name'] }}</td><td class="amount">{{ number_format($row['balance'], 2) }}</td></tr>
+            @endforeach
+            </tbody>
+            <tfoot><tr class="total-row"><td>Total Tax</td><td class="amount">{{ number_format($totalTax, 2) }}</td></tr></tfoot>
+        </table>
+    </div>
+    @endif
+
     <table>
         <tfoot>
             <tr class="net-row">
-                <td>Net Profit / (Loss)</td>
+                <td>Net Profit / (Loss){{ !empty($taxes) ? ' After Tax' : '' }}</td>
                 <td class="amount {{ $netProfit >= 0 ? 'positive' : 'negative' }}">
                     ZMW {{ number_format(abs($netProfit), 2) }}{{ $netProfit < 0 ? ' (Loss)' : '' }}
                 </td>

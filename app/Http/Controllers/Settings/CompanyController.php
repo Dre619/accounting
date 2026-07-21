@@ -20,7 +20,7 @@ class CompanyController extends Controller
             'company' => $company->only(
                 'name', 'tpin', 'vat_number', 'email', 'phone',
                 'address', 'city', 'country', 'financial_year_end',
-                'invoice_prefix', 'logo_path',
+                'invoice_prefix', 'logo_path', 'tax_regime',
                 'vsdc_url', 'vsdc_bhf_id', 'vsdc_dvc_srl_no',
                 'vsdc_initialized', 'vsdc_sdc_id', 'vsdc_mrc_no'
             ),
@@ -42,6 +42,7 @@ class CompanyController extends Controller
             'city'               => ['nullable', 'string', 'max:100'],
             'financial_year_end' => ['required', 'string', 'regex:/^\d{2}-\d{2}$/'],
             'invoice_prefix'     => ['required', 'string', 'max:10'],
+            'tax_regime'         => ['required', 'in:standard,turnover'],
             'logo'               => ['nullable', 'image', 'max:2048'],
             'vsdc_url'           => ['nullable', 'url', 'max:255'],
             'vsdc_bhf_id'        => ['nullable', 'string', 'max:3'],
