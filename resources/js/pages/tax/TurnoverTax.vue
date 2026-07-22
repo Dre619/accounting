@@ -13,6 +13,7 @@ interface Result {
     turnover: number; rate: number | null; rate_name: string | null;
     rate_error: string | null; tax: number | null;
     from: string; to: string; posted: boolean;
+    posted_tax: number | null; amended: boolean;
 }
 interface Rate { id: number; name: string; code: string; rate: number; period: string; active: boolean }
 
@@ -93,6 +94,18 @@ function fmt(v: number | null) {
                 </CardContent>
             </Card>
 
+            <!-- Amendment warning: figures changed after this period was posted -->
+            <Card v-if="result.amended" class="border-amber-300 bg-amber-50 dark:bg-amber-950/20">
+                <CardContent class="pt-4 flex gap-3 text-sm">
+                    <AlertTriangle class="h-5 w-5 text-amber-600 shrink-0" />
+                    <p>
+                        This period was posted at <strong>ZMW {{ fmt(result.posted_tax) }}</strong> but now computes as
+                        <strong>ZMW {{ fmt(result.tax) }}</strong> — usually because a sale from this period was voided
+                        after filing. File an amended return for the difference and post a correcting journal entry.
+                    </p>
+                </CardContent>
+            </Card>
+
             <!-- Period -->
             <Card>
                 <CardContent class="pt-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
@@ -114,7 +127,10 @@ function fmt(v: number | null) {
                 <CardContent>
                     <dl class="space-y-2 text-sm">
                         <div class="flex justify-between border-b pb-2">
-                            <dt class="text-muted-foreground">Gross turnover (operating income)</dt>
+                            <dt class="text-muted-foreground">
+                                Gross turnover
+                                <span class="block text-xs">Invoices issued in the period, excluding voided</span>
+                            </dt>
                             <dd class="font-medium">ZMW {{ fmt(result.turnover) }}</dd>
                         </div>
                         <div class="flex justify-between border-b pb-2">

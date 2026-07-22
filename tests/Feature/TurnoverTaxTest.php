@@ -220,6 +220,92 @@ class TurnoverTaxTest extends TestCase
                 ->has('taxes', 1));
     }
 
+    /** Raise + send an invoice dated in a specific period. */
+    private function sellOn(string $date, float $amount): \App\Models\Invoice
+    {
+        $customer = $this->company->contacts()->create(['name' => 'Buyer', 'type' => 'customer']);
+        $invoices = app(InvoiceService::class);
+        $invoice  = $invoices->store($this->company, [
+            'contact_id' => $customer->id,
+            'issue_date' => $date,
+            'due_date'   => $date,
+            'items'      => [[
+                'description' => 'Sale', 'account_id' => $this->accountId('4000'),
+                'quantity' => 1, 'unit_price' => $amount,
+            ]],
+        ]);
+        $invoices->send($invoice);
+
+        return $invoice;
+    }
+
+    public function test_voided_sale_is_removed_from_its_own_period_not_the_void_month(): void
+    {
+        $march = $this->sellOn('2026-03-10', 12_500);
+        $this->sellOn('2026-07-10', 5_650);
+
+        $svc = app(TurnoverTaxService::class);
+        $this->assertEquals(12_500.0, $svc->compute($this->company, '2026-03-01', '2026-03-31')['turnover']);
+
+        // Void the March sale "today" (July) — the reversal posts in July.
+        app(InvoiceService::class)->void($march);
+
+        $this->assertEquals(
+            0.0,
+            $svc->compute($this->company, '2026-03-01', '2026-03-31')['turnover'],
+            'The cancelled sale leaves the month it belonged to'
+        );
+        $this->assertEquals(
+            5_650.0,
+            $svc->compute($this->company, '2026-07-01', '2026-07-31')['turnover'],
+            'July is unaffected by a prior-period void'
+        );
+    }
+
+    public function test_turnover_can_never_go_negative_from_prior_period_voids(): void
+    {
+        $march = $this->sellOn('2026-03-10', 12_500);
+        $this->sellOn('2026-07-10', 650);
+
+        app(InvoiceService::class)->void($march);
+
+        $july = app(TurnoverTaxService::class)->compute($this->company, '2026-07-01', '2026-07-31');
+        $this->assertGreaterThanOrEqual(0.0, $july['turnover']);
+        $this->assertEquals(650.0, $july['turnover']);
+    }
+
+    public function test_draft_invoices_are_excluded_until_sent(): void
+    {
+        $customer = $this->company->contacts()->create(['name' => 'Buyer', 'type' => 'customer']);
+        app(InvoiceService::class)->store($this->company, [
+            'contact_id' => $customer->id,
+            'issue_date' => '2026-07-10', 'due_date' => '2026-07-10',
+            'items' => [['description' => 'Draft', 'account_id' => $this->accountId('4000'), 'quantity' => 1, 'unit_price' => 900]],
+        ]);
+
+        $this->assertEquals(0.0, app(TurnoverTaxService::class)
+            ->compute($this->company, '2026-07-01', '2026-07-31')['turnover']);
+    }
+
+    public function test_posted_period_is_flagged_when_its_figure_later_changes(): void
+    {
+        $sale = $this->sellOn('2026-03-10', 10_000);
+        $svc  = app(TurnoverTaxService::class);
+
+        $svc->post($this->company, '2026-03-01', '2026-03-31'); // 10,000 @ 4% = 400
+        $before = $svc->compute($this->company, '2026-03-01', '2026-03-31');
+        $this->assertTrue($before['posted']);
+        $this->assertFalse($before['amended'], 'Nothing has changed yet');
+        $this->assertEquals(400.0, $before['posted_tax']);
+
+        app(InvoiceService::class)->void($sale);
+
+        $after = $svc->compute($this->company, '2026-03-01', '2026-03-31');
+        $this->assertTrue($after['amended'], 'Voiding a filed sale must flag an amendment');
+        $this->assertEquals(0.0, $after['tax']);
+        $this->assertEquals(400.0, $after['posted_tax'], 'What was actually filed is retained');
+    }
+
     public function test_turnover_tax_page_renders_with_the_return(): void
     {
         $this->sell(2_500);

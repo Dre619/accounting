@@ -19,35 +19,51 @@ use Illuminate\Support\Facades\DB;
  */
 class TurnoverTaxService
 {
-    /** Turnover and tax due for a period, based on posted operating income. */
+    /**
+     * Turnover and tax due for a period.
+     *
+     * Turnover is taken from the INVOICES ISSUED in the period, excluding voided
+     * ones — not from journal entry dates. Voiding a prior-period sale posts its
+     * reversal on the day of the void, so a ledger-date basis would both overstate
+     * the original month and push the current month negative. Turnover tax is a
+     * tax on gross turnover and cannot be negative: a cancelled sale belongs to
+     * the month it was raised, and is handled by amending that month's return.
+     */
     public function compute(Company $company, string $from, string $to): array
     {
-        $turnover = (float) DB::table('journal_lines')
-            ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
-            ->join('accounts', 'accounts.id', '=', 'journal_lines.account_id')
-            ->where('journal_entries.company_id', $company->id)
-            ->where('journal_entries.status', 'posted')
+        $turnover = (float) DB::table('invoice_items')
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->join('accounts', 'accounts.id', '=', 'invoice_items.account_id')
+            ->where('invoices.company_id', $company->id)
+            ->whereNotIn('invoices.status', ['void', 'draft'])
             ->where('accounts.type', 'income')
             ->where('accounts.subtype', 'operating_income')
-            ->whereDate('journal_entries.entry_date', '>=', $from)
-            ->whereDate('journal_entries.entry_date', '<=', $to)
-            ->whereNull('journal_entries.deleted_at')
-            ->selectRaw('COALESCE(SUM(journal_lines.credit) - SUM(journal_lines.debit), 0) as turnover')
-            ->value('turnover');
+            ->whereDate('invoices.issue_date', '>=', $from)
+            ->whereDate('invoices.issue_date', '<=', $to)
+            ->whereNull('invoices.deleted_at')
+            ->sum('invoice_items.subtotal');
 
         $turnover   = round($turnover, 2);
         $resolution = $this->resolveRate($company, $from, $to);
         $rate       = $resolution['rate']?->rate !== null ? (float) $resolution['rate']->rate : null;
+        $tax        = $rate !== null ? round($turnover * $rate / 100, 2) : null;
+
+        // If the period was already posted, surface any drift so an amendment
+        // can be filed — typically caused by voiding a sale after filing.
+        $entry     = $this->postedEntry($company, $from, $to);
+        $postedTax = $entry ? round((float) $entry->lines->sum('debit'), 2) : null;
 
         return [
             'turnover'   => $turnover,
             'rate'       => $rate,
             'rate_name'  => $resolution['rate']?->name,
             'rate_error' => $resolution['error'],
-            'tax'        => $rate !== null ? round($turnover * $rate / 100, 2) : null,
+            'tax'        => $tax,
             'from'       => $from,
             'to'         => $to,
-            'posted'     => $this->postedEntry($company, $from, $to) !== null,
+            'posted'     => $entry !== null,
+            'posted_tax' => $postedTax,
+            'amended'    => $postedTax !== null && $tax !== null && abs($postedTax - $tax) > 0.005,
         ];
     }
 

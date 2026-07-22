@@ -37,8 +37,8 @@
       "_wayfinder-DrLiJWQm.js"
     ]
   },
-  "_AppearanceTabs-DuS6LUZa.js": {
-    "file": "assets/AppearanceTabs-DuS6LUZa.js",
+  "_AppearanceTabs-CfiXFlub.js": {
+    "file": "assets/AppearanceTabs-CfiXFlub.js",
     "name": "AppearanceTabs",
     "imports": [
       "_index.esm-D2hpCwNn.js",
@@ -629,7 +629,7 @@
     ]
   },
   "resources/js/app.ts": {
-    "file": "assets/app-Dt5db2Z0.js",
+    "file": "assets/app-D7a_kze7.js",
     "name": "app",
     "src": "resources/js/app.ts",
     "isEntry": true,
@@ -952,7 +952,7 @@
     ]
   },
   "resources/js/pages/admin/settings/Appearance.vue": {
-    "file": "assets/Appearance-CMK4Bpbt.js",
+    "file": "assets/Appearance-D8Z4JesP.js",
     "name": "Appearance",
     "src": "resources/js/pages/admin/settings/Appearance.vue",
     "isDynamicEntry": true,
@@ -961,7 +961,7 @@
       "_useFlashToast-BZ3n5tGp.js",
       "_button-BzR6DvOT.js",
       "_AdminLayout-DBJOOlR0.js",
-      "_AppearanceTabs-DuS6LUZa.js",
+      "_AppearanceTabs-CfiXFlub.js",
       "_useCurrentUrl-DpyoINZm.js",
       "_AdminSettingsLayout-C2eJgIUd.js",
       "_routes-BdxbxBIB.js"
@@ -2262,7 +2262,7 @@
     ]
   },
   "resources/js/pages/settings/Appearance.vue": {
-    "file": "assets/Appearance-AtxmS9hz.js",
+    "file": "assets/Appearance-D6IG4OpH.js",
     "name": "Appearance",
     "src": "resources/js/pages/settings/Appearance.vue",
     "isDynamicEntry": true,
@@ -2271,7 +2271,7 @@
       "_useFlashToast-BZ3n5tGp.js",
       "_button-BzR6DvOT.js",
       "_AppLayout-D4aLX2nn.js",
-      "_AppearanceTabs-DuS6LUZa.js",
+      "_AppearanceTabs-CfiXFlub.js",
       "_Layout-CiXgLM8k.js",
       "_useCurrentUrl-DpyoINZm.js",
       "_routes-BdxbxBIB.js"
@@ -2324,7 +2324,7 @@
     ]
   },
   "resources/js/pages/settings/Security.vue": {
-    "file": "assets/Security-Bh9T5AZM.js",
+    "file": "assets/Security-BCP9SROF.js",
     "name": "Security",
     "src": "resources/js/pages/settings/Security.vue",
     "isDynamicEntry": true,
@@ -2412,7 +2412,7 @@
     ]
   },
   "resources/js/pages/tax/TurnoverTax.vue": {
-    "file": "assets/TurnoverTax-B6RNlpAn.js",
+    "file": "assets/TurnoverTax-C-uvBy74.js",
     "name": "TurnoverTax",
     "src": "resources/js/pages/tax/TurnoverTax.vue",
     "isDynamicEntry": true,

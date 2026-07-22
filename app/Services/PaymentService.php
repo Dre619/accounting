@@ -148,10 +148,13 @@ class PaymentService
         $doc->amount_paid = $doc->amount_paid + $amount;
         $doc->amount_due  = max(0, $doc->total - $doc->amount_paid - $doc->withholding_tax_amount);
 
-        if ($doc->amount_due <= 0) {
-            $doc->status = 'paid';
-        } elseif ($doc->amount_paid > 0) {
-            $doc->status = 'partial';
+        // Never move a voided document back into a live status.
+        if ($doc->status !== 'void') {
+            if ($doc->amount_due <= 0) {
+                $doc->status = 'paid';
+            } elseif ($doc->amount_paid > 0) {
+                $doc->status = 'partial';
+            }
         }
 
         $doc->save();
@@ -166,7 +169,14 @@ class PaymentService
 
         $doc->amount_paid = max(0, $doc->amount_paid - $alloc->amount);
         $doc->amount_due  = $doc->total - $doc->amount_paid - $doc->withholding_tax_amount;
-        $doc->status      = $doc->amount_paid > 0 ? 'partial' : ($doc instanceof Invoice ? 'sent' : 'approved');
+
+        // A voided document stays voided. Recomputing its status from amount_paid
+        // would resurrect it to 'sent', letting it be voided a second time and
+        // posting a duplicate reversal that double-credits receivables.
+        if ($doc->status !== 'void') {
+            $doc->status = $doc->amount_paid > 0 ? 'partial' : ($doc instanceof Invoice ? 'sent' : 'approved');
+        }
+
         $doc->save();
     }
 
