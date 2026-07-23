@@ -19,12 +19,14 @@ class DashboardController extends Controller
             ->selectRaw('SUM(amount) as total, COUNT(*) as count')
             ->first();
 
+        // Grouped in PHP: DATE_FORMAT() is MySQL-only and breaks portability.
         $revenueByMonth = SubscriptionPayment::where('status', 'completed')
             ->where('created_at', '>=', now()->subMonths(6))
-            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, SUM(amount) as total")
-            ->groupBy('month')
-            ->orderBy('month')
-            ->get();
+            ->get(['created_at', 'amount'])
+            ->groupBy(fn ($row) => $row->created_at->format('Y-m'))
+            ->map(fn ($rows, $month) => (object) ['month' => $month, 'total' => round($rows->sum('amount'), 2)])
+            ->sortBy('month')
+            ->values();
 
         return Inertia::render('admin/Dashboard', [
             'stats' => [

@@ -155,4 +155,20 @@ class JournalEntryNumberingTest extends TestCase
 
         $this->assertEquals('PO-0002', $this->makePo()->po_number);
     }
+
+    public function test_invoice_number_reads_a_fresh_sequence_not_a_stale_instance(): void
+    {
+        // Two model instances of the same company simulate two requests holding
+        // separately-loaded copies. The first advances the sequence; the second,
+        // with a stale in-memory value, must still mint the next number — not
+        // reuse the first's — because nextInvoiceNumber re-reads from the row.
+        $a = \App\Models\Company::find($this->company->id);
+        $b = \App\Models\Company::find($this->company->id);
+
+        $first  = $a->nextInvoiceNumber();
+        $second = $b->nextInvoiceNumber();
+
+        $this->assertEquals('INV-0001', $first);
+        $this->assertEquals('INV-0002', $second, 'A stale instance must not reissue the same invoice number');
+    }
 }

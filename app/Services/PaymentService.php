@@ -34,13 +34,17 @@ class PaymentService
                 'created_by'             => auth()->id(),
             ]);
 
-            // Apply allocations
+            // Apply allocations. Withholding tax also settles the document, so it
+            // is spread across the allocations in proportion to their amounts —
+            // otherwise the ledger (which grosses the receivable up by the WHT)
+            // and the document's amount_due would disagree.
+            $valid        = collect($data['allocations'] ?? [])->filter(fn ($a) => ! empty($a['amount']) && $a['amount'] > 0)->values();
+            $allocTotal   = (float) $valid->sum('amount');
+            $paymentWht   = (float) ($data['withholding_tax_amount'] ?? 0);
+            $allocatedWht = 0.0;
             $hasAllocations = false;
-            foreach ($data['allocations'] ?? [] as $alloc) {
-                if (empty($alloc['amount']) || $alloc['amount'] <= 0) {
-                    continue;
-                }
 
+            foreach ($valid as $i => $alloc) {
                 // Ensure invoice has its AR journal posted before we credit AR in the payment journal
                 if ($alloc['type'] === 'invoice') {
                     $inv = Invoice::find($alloc['id']);
@@ -56,7 +60,15 @@ class PaymentService
                     'amount'           => $alloc['amount'],
                 ]);
 
-                $this->updateDocumentStatus($alloc['type'], $alloc['id'], $alloc['amount']);
+                // Give the last allocation the rounding remainder so shares sum to the WHT exactly.
+                $whtShare = $allocTotal > 0
+                    ? ($i === $valid->count() - 1
+                        ? round($paymentWht - $allocatedWht, 2)
+                        : round($paymentWht * $alloc['amount'] / $allocTotal, 2))
+                    : 0.0;
+                $allocatedWht += $whtShare;
+
+                $this->updateDocumentStatus($alloc['type'], $alloc['id'], (float) $alloc['amount'], $whtShare);
                 $hasAllocations = true;
             }
 
@@ -137,7 +149,7 @@ class PaymentService
 
     // ── Private helpers ──────────────────────────────────────────────────────
 
-    private function updateDocumentStatus(string $type, int $id, float $amount): void
+    private function updateDocumentStatus(string $type, int $id, float $amount, float $whtShare = 0.0): void
     {
         $doc = $type === 'invoice' ? Invoice::find($id) : Bill::find($id);
 
@@ -145,6 +157,9 @@ class PaymentService
             return;
         }
 
+        // WHT withheld on this settlement also reduces what is owed — accumulate it
+        // on the document so amount_due matches the grossed-up receivable posting.
+        $doc->withholding_tax_amount = (float) $doc->withholding_tax_amount + $whtShare;
         $doc->amount_paid = $doc->amount_paid + $amount;
         $doc->amount_due  = max(0, $doc->total - $doc->amount_paid - $doc->withholding_tax_amount);
 
@@ -200,46 +215,46 @@ class PaymentService
 
         $lines = [];
 
-        if ($payment->type === 'receipt') {
-            // DR Bank/Cash
-            $lines[] = ['debit' => $payment->amount, 'credit' => 0, 'account_id' => $payment->deposit_account_id, 'sort_order' => 0];
+        // Withholding tax differs by direction:
+        //  - receipt: the customer withheld tax from what they paid us, so it is a
+        //    WHT RECEIVABLE (asset, code 1600) we can offset against income tax.
+        //  - payment: we withheld tax from the supplier, so it is a WHT PAYABLE
+        //    (liability, code 2200) we owe ZRA.
+        // Either way the settled document (AR/AP) is the gross — cash plus WHT —
+        // so the WHT line has a real offset and the entry always balances.
+        $cash  = (float) $payment->amount;
+        $wht   = (float) $payment->withholding_tax_amount;
+        $whtId = $wht > 0
+            ? Account::where('company_id', $company->id)
+                ->where('code', $payment->type === 'receipt' ? '1600' : '2200')->value('id')
+            : null;
+        $wht     = $whtId ? $wht : 0.0; // only gross up if the WHT account exists
+        $settled = round($cash + $wht, 2);
 
-            if ($hasAllocations) {
-                // CR Accounts Receivable (1200) — customer owes less
-                $arAccount = Account::where('company_id', $company->id)->where('code', '1200')->first();
-                if ($arAccount) {
-                    $lines[] = ['debit' => 0, 'credit' => $payment->amount, 'account_id' => $arAccount->id, 'sort_order' => 1];
-                }
-            } else {
-                // CR Customer Deposits (2050) — liability until allocated to an invoice
-                $cdAccount = Account::where('company_id', $company->id)->where('code', '2050')->first();
-                if ($cdAccount) {
-                    $lines[] = ['debit' => 0, 'credit' => $payment->amount, 'account_id' => $cdAccount->id, 'sort_order' => 1];
-                }
+        if ($payment->type === 'receipt') {
+            // DR Bank/Cash (net received)
+            $lines[] = ['debit' => $cash, 'credit' => 0, 'account_id' => $payment->deposit_account_id, 'sort_order' => 0];
+            // DR WHT Receivable (tax the customer withheld)
+            if ($wht > 0) {
+                $lines[] = ['debit' => $wht, 'credit' => 0, 'account_id' => $whtId, 'sort_order' => 1];
+            }
+            // CR the settled document: AR when allocated, else Customer Deposits (2050)
+            $creditId = Account::where('company_id', $company->id)
+                ->where('code', $hasAllocations ? '1200' : '2050')->value('id');
+            if ($creditId) {
+                $lines[] = ['debit' => 0, 'credit' => $settled, 'account_id' => $creditId, 'sort_order' => 2];
             }
         } else {
-            if ($hasAllocations) {
-                // DR Accounts Payable (2000)
-                $apAccount = Account::where('company_id', $company->id)->where('code', '2000')->first();
-                if ($apAccount) {
-                    $lines[] = ['debit' => $payment->amount, 'credit' => 0, 'account_id' => $apAccount->id, 'sort_order' => 0];
-                }
-            } else {
-                // DR Supplier Advances — use AP since there's no separate prepayment asset yet
-                $apAccount = Account::where('company_id', $company->id)->where('code', '2000')->first();
-                if ($apAccount) {
-                    $lines[] = ['debit' => $payment->amount, 'credit' => 0, 'account_id' => $apAccount->id, 'sort_order' => 0];
-                }
+            // DR the settled document: Accounts Payable (2000), allocated or advance
+            $apId = Account::where('company_id', $company->id)->where('code', '2000')->value('id');
+            if ($apId) {
+                $lines[] = ['debit' => $settled, 'credit' => 0, 'account_id' => $apId, 'sort_order' => 0];
             }
-            // CR Bank/Cash
-            $lines[] = ['debit' => 0, 'credit' => $payment->amount, 'account_id' => $payment->deposit_account_id, 'sort_order' => 1];
-        }
-
-        // WHT line if applicable
-        if ($payment->withholding_tax_amount > 0) {
-            $whtAccount = Account::where('company_id', $company->id)->where('code', '2200')->first();
-            if ($whtAccount) {
-                $lines[] = ['debit' => 0, 'credit' => $payment->withholding_tax_amount, 'account_id' => $whtAccount->id, 'sort_order' => 2];
+            // CR Bank/Cash (net paid)
+            $lines[] = ['debit' => 0, 'credit' => $cash, 'account_id' => $payment->deposit_account_id, 'sort_order' => 1];
+            // CR WHT Payable (tax we withheld from the supplier)
+            if ($wht > 0) {
+                $lines[] = ['debit' => 0, 'credit' => $wht, 'account_id' => $whtId, 'sort_order' => 2];
             }
         }
 

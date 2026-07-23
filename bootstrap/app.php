@@ -49,6 +49,24 @@ return Application::configure(basePath: dirname(__DIR__))
             ->weekdays()
             ->at('08:00')
             ->withoutOverlapping();
+
+        // Nightly ledger integrity check at 02:00. Exits non-zero on any error
+        // (unbalanced entry, trial balance out, control account on the wrong side
+        // of zero), so drift is caught the next morning — not by a customer
+        // months later. Warnings (subledger drift) are reviewed manually, since
+        // opening balances can cause benign differences.
+        $reconcile = $schedule->command('ledger:reconcile --errors-only')
+            ->dailyAt('02:00')
+            ->withoutOverlapping()
+            ->onFailure(function (): void {
+                \Illuminate\Support\Facades\Log::error(
+                    'Ledger reconciliation found integrity errors. Run `php artisan ledger:reconcile` to inspect.'
+                );
+            });
+
+        if ($alertEmail = env('RECONCILE_ALERT_EMAIL', env('MAIL_FROM_ADDRESS'))) {
+            $reconcile->emailOutputOnFailure($alertEmail);
+        }
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

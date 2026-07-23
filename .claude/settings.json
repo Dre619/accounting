@@ -24,7 +24,19 @@
       "Bash(git config *)",
       "Bash(cat > *)",
       "Bash(php -l database/migrations/2026_07_18_000010_add_effective_dates_to_tax_rates.php)",
-      "Bash(php -l app/Services/TurnoverTaxService.php)"
+      "Bash(php -l app/Services/TurnoverTaxService.php)",
+      "Bash(php -l app/Http/Controllers/DashboardController.php)",
+      "Bash(grep -n \"Inertia::render\\\\|'transactions'\\\\|transactions\\\\|=> \\\\$\" app/Http/Controllers/AccountController.php)",
+      "Bash(cp tests/Feature/LedgerReconciliationTest.php /tmp/lrt.bak)",
+      "Bash(perl -0pi -e 's/\\(\\\\$failed = \\\\$this->failed\\\\\\(\\\\$this->service\\\\\\(\\\\\\)->check\\\\\\(\\\\$this->company\\\\\\)\\\\\\);\\\\n\\)\\(\\\\s+\\\\$this->assertTrue\\\\\\(\\\\$failed->where\\\\\\(.check., .entry-balanced.\\\\\\)\\)/\\\\1        dump\\($this->service\\(\\)->check\\($this->company\\)->all\\(\\)\\);\\\\n\\\\2/' tests/Feature/LedgerReconciliationTest.php)",
+      "Bash(perl -0pi -e 's/\\(\\\\$failed = \\\\$this->failed\\\\\\(\\\\$this->service\\\\\\(\\\\\\)->check\\\\\\(\\\\$this->company\\\\\\)\\\\\\);\\\\n\\)\\(\\\\s+\\\\$this->assertTrue\\\\\\(\\\\$failed->where\\\\\\(.check., .entry-balanced.\\\\\\)\\)/\\\\1        fwrite\\(STDERR, json_encode\\($this->service\\(\\)->check\\($this->company\\)->pluck\\(\"actual\",\"check\"\\)\\).PHP_EOL\\);\\\\2/' tests/Feature/LedgerReconciliationTest.php)",
+      "Bash(perl -0pi -e 's/\\(\\\\$failed = \\\\$this->failed\\\\\\(\\\\$this->service\\\\\\(\\\\\\)->check\\\\\\(\\\\$this->company\\\\\\)\\\\\\);\\\\n\\)/\\\\1 file_put_contents\\(\"\\\\/tmp\\\\/recon.json\", json_encode\\(\\\\$this->service\\(\\)->check\\(\\\\$this->company\\)->values\\(\\)->all\\(\\), JSON_PRETTY_PRINT\\)\\);\\\\n/' tests/Feature/LedgerReconciliationTest.php)",
+      "Bash(perl -0pi -e 's/\\(\\\\]\\\\\\)->filter\\\\\\(\\\\\\);\\)/]\\)->filter\\(\\);\\\\n file_put_contents\\(sys_get_temp_dir\\(\\).\"\\\\/recon.json\", json_encode\\(\\\\$__r->values\\(\\)->all\\(\\), JSON_PRETTY_PRINT\\)\\);\\\\n return \\\\$__r;/ if !$done; ' app/Services/LedgerReconciliationService.php)",
+      "Bash(perl -0pi -e 's/return collect\\\\\\(\\\\[/\\\\$__all = collect\\([/; s/\\\\]\\\\\\)->filter\\\\\\(\\\\\\);/]\\)->filter\\(\\); file_put_contents\\(sys_get_temp_dir\\(\\).\"\\\\/recon.json\", json_encode\\(\\\\$__all->values\\(\\)->all\\(\\)\\)\\); return \\\\$__all;/' app/Services/LedgerReconciliationService.php)",
+      "Bash(python3 -c \"import json,glob,tempfile,os; p=os.path.join\\(tempfile.gettempdir\\(\\),'recon.json'\\); print\\(json.dumps\\(json.load\\(open\\(p\\)\\),indent=1\\)\\) if os.path.exists\\(p\\) else print\\('NO FILE'\\)\")",
+      "Bash(php -l app/Services/PaymentService.php)",
+      "Bash(php -l bootstrap/app.php)",
+      "Bash(echo \"exit: $?\")"
     ],
     "additionalDirectories": [
       "\\tmp"

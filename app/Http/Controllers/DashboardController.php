@@ -41,16 +41,18 @@ class DashboardController extends Controller
             ->whereNull('invoices.deleted_at')
             ->sum('invoice_items.subtotal');
 
-        // Revenue last 6 months
+        // Revenue last 6 months. Grouped in PHP rather than with DATE_FORMAT(),
+        // which is MySQL-only — keeping the query portable (and testable on sqlite).
         $revenueMonthly = DB::table('invoices')
             ->where('company_id', $companyId)
             ->whereIn('status', ['sent', 'partial', 'paid'])
             ->where('issue_date', '>=', now()->subMonths(5)->startOfMonth()->toDateString())
             ->whereNull('deleted_at')
-            ->selectRaw("DATE_FORMAT(issue_date, '%Y-%m') as month, SUM(total) as total")
-            ->groupBy('month')
-            ->orderBy('month')
-            ->get();
+            ->get(['issue_date', 'total'])
+            ->groupBy(fn ($row) => \Illuminate\Support\Carbon::parse($row->issue_date)->format('Y-m'))
+            ->map(fn ($rows, $month) => (object) ['month' => $month, 'total' => round($rows->sum('total'), 2)])
+            ->sortBy('month')
+            ->values();
 
         // Recent invoices
         $recentInvoices = $company->invoices()

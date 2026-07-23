@@ -63,36 +63,49 @@ class BillService
     {
         abort_unless($bill->status === 'draft', 422, 'Only draft bills can be approved.');
 
-        $bill->update([
-            'status'      => 'approved',
-            'approved_at' => now(),
-        ]);
+        return DB::transaction(function () use ($bill) {
+            $bill->update([
+                'status'      => 'approved',
+                'approved_at' => now(),
+            ]);
 
-        if ($bill->journalEntries()->where('source', 'bill')->doesntExist()) {
-            $this->createJournalEntry($bill);
-        }
+            if ($bill->journalEntries()->where('source', 'bill')->doesntExist()) {
+                $this->createJournalEntry($bill);
+            }
 
-        return $bill;
+            return $bill;
+        });
     }
 
     public function void(Bill $bill): Bill
     {
         abort_unless(! in_array($bill->status, ['paid', 'void']), 422, 'Cannot void a paid or already voided bill.');
 
-        $bill->update([
-            'status'     => 'void',
-            'voided_at'  => now(),
-        ]);
+        // Voiding reverses the full bill, but any payment already made still debits
+        // accounts payable — which would leave AP negative by the amount paid.
+        // Mirrors the same guard on InvoiceService::void.
+        abort_if(
+            (float) $bill->amount_paid > 0,
+            422,
+            'This bill has payments allocated to it. Unallocate or refund the payment before voiding.'
+        );
 
-        $original = $bill->journalEntries()->where('source', 'bill')->first();
-        if ($original) {
-            $this->reverseJournalEntry($original, $bill);
-        }
+        return DB::transaction(function () use ($bill) {
+            $bill->update([
+                'status'     => 'void',
+                'voided_at'  => now(),
+            ]);
 
-        // Remove any received stock (GL already unwound above).
-        $this->stock->reverseFor($bill);
+            $original = $bill->journalEntries()->where('source', 'bill')->first();
+            if ($original) {
+                $this->reverseJournalEntry($original, $bill);
+            }
 
-        return $bill;
+            // Remove any received stock (GL already unwound above).
+            $this->stock->reverseFor($bill);
+
+            return $bill;
+        });
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────

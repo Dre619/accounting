@@ -99,8 +99,8 @@ class AccountController extends Controller
             ->where('journal_lines.account_id', $account->id)
             ->where('journal_entries.status', 'posted')
             ->whereNull('journal_entries.deleted_at')
-            ->when($from, fn ($q) => $q->where('journal_entries.entry_date', '>=', $from))
-            ->when($to,   fn ($q) => $q->where('journal_entries.entry_date', '<=', $to))
+            ->when($from, fn ($q) => $q->whereDate('journal_entries.entry_date', '>=', $from))
+            ->when($to,   fn ($q) => $q->whereDate('journal_entries.entry_date', '<=', $to))
             ->selectRaw('
                 journal_entries.entry_date,
                 journal_entries.entry_number,

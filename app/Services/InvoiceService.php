@@ -64,17 +64,19 @@ class InvoiceService
     {
         abort_unless(in_array($invoice->status, ['draft', 'sent']), 422, 'Cannot send a paid or voided invoice.');
 
-        $invoice->update([
-            'status'  => 'sent',
-            'sent_at' => now(),
-        ]);
+        return DB::transaction(function () use ($invoice) {
+            $invoice->update([
+                'status'  => 'sent',
+                'sent_at' => now(),
+            ]);
 
-        // Create accounting journal entry if not already present
-        if ($invoice->journalEntries()->where('source', 'invoice')->doesntExist()) {
-            $this->createJournalEntry($invoice);
-        }
+            // Create accounting journal entry if not already present
+            if ($invoice->journalEntries()->where('source', 'invoice')->doesntExist()) {
+                $this->createJournalEntry($invoice);
+            }
 
-        return $invoice;
+            return $invoice;
+        });
     }
 
     public function void(Invoice $invoice): Invoice
@@ -90,21 +92,23 @@ class InvoiceService
             'This invoice has payments allocated to it. Unallocate or refund the payment before voiding.'
         );
 
-        $invoice->update([
-            'status'     => 'void',
-            'voided_at'  => now(),
-        ]);
+        return DB::transaction(function () use ($invoice) {
+            $invoice->update([
+                'status'     => 'void',
+                'voided_at'  => now(),
+            ]);
 
-        // Reverse the journal entry
-        $original = $invoice->journalEntries()->where('source', 'invoice')->first();
-        if ($original) {
-            $this->reverseJournalEntry($original, $invoice);
-        }
+            // Reverse the journal entry
+            $original = $invoice->journalEntries()->where('source', 'invoice')->first();
+            if ($original) {
+                $this->reverseJournalEntry($original, $invoice);
+            }
 
-        // Return any issued stock to inventory (GL already unwound above).
-        $this->stock->reverseFor($invoice);
+            // Return any issued stock to inventory (GL already unwound above).
+            $this->stock->reverseFor($invoice);
 
-        return $invoice;
+            return $invoice;
+        });
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────
@@ -212,20 +216,44 @@ class InvoiceService
             ];
         }
 
-        // CR Revenue account(s) per line item
-        $revenueByAccount = $invoice->items()
-            ->whereNotNull('account_id')
-            ->selectRaw('account_id, SUM(subtotal) as total')
-            ->groupBy('account_id')
-            ->get();
+        // CR Revenue account(s) per line item. A line with no account selected
+        // is routed to the company's default income account rather than dropped —
+        // dropping it left AR debited without the matching revenue credit, so the
+        // whole entry did not balance.
+        $defaultIncomeId = Account::where('company_id', $company->id)
+            ->where('type', 'income')->orderBy('code')->value('id');
 
-        foreach ($revenueByAccount as $row) {
+        $revenueByAccount = $invoice->items
+            ->groupBy(fn ($item) => $item->account_id ?? $defaultIncomeId)
+            ->map(fn ($items) => round($items->sum('subtotal'), 2));
+
+        foreach ($revenueByAccount as $accountId => $total) {
+            if (! $accountId || $total <= 0) {
+                continue;
+            }
+
             $lines[] = [
                 'journal_entry_id' => $entry->id,
-                'account_id'       => $row->account_id,
+                'account_id'       => $accountId,
                 'description'      => "Revenue — Invoice {$invoice->invoice_number}",
                 'debit'            => 0,
-                'credit'           => $row->total,
+                'credit'           => $total,
+                'contact_id'       => $invoice->contact_id,
+                'sort_order'       => $sort++,
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ];
+        }
+
+        // DR a discount (contra-revenue) line so an invoice-level discount does
+        // not leave the entry unbalanced. Netted against the default income account.
+        if ((float) $invoice->discount_amount > 0 && $defaultIncomeId) {
+            $lines[] = [
+                'journal_entry_id' => $entry->id,
+                'account_id'       => $defaultIncomeId,
+                'description'      => "Discount — Invoice {$invoice->invoice_number}",
+                'debit'            => round((float) $invoice->discount_amount, 2),
+                'credit'           => 0,
                 'contact_id'       => $invoice->contact_id,
                 'sort_order'       => $sort++,
                 'created_at'       => now(),

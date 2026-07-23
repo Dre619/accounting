@@ -264,6 +264,8 @@ class Company extends Model
      */
     private function nextDocumentNumber(\Closure $query, string $column, string $prefix): string
     {
+        $this->lockForNumbering();
+
         $last = $query()
             ->orderByRaw("LENGTH({$column}) DESC")
             ->orderBy($column, 'DESC')
@@ -278,6 +280,22 @@ class Company extends Model
         return $this->formatDocumentNumber($prefix, $next);
     }
 
+    /**
+     * Serialize document-number generation for this company.
+     *
+     * Two posts running at once could otherwise read the same "highest number"
+     * and generate the same value, colliding on the unique index and failing the
+     * whole posting. A row lock on the company makes concurrent generators queue:
+     * the lock is held until the caller's transaction commits (all posting flows
+     * run inside a transaction), by which point the first number is committed and
+     * visible to the next waiter. Outside a transaction it is a harmless no-op —
+     * and on sqlite (tests) lockForUpdate is a no-op regardless.
+     */
+    private function lockForNumbering(): void
+    {
+        static::whereKey($this->getKey())->lockForUpdate()->first();
+    }
+
     private function formatDocumentNumber(string $prefix, int $sequence): string
     {
         return $prefix . str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
@@ -288,10 +306,13 @@ class Company extends Model
      */
     public function nextInvoiceNumber(): string
     {
+        $this->lockForNumbering();
+
         /** @var string $prefix */
         $prefix = $this->invoice_prefix;
-        /** @var int $sequence */
-        $sequence = $this->invoice_sequence;
+        // Re-read the sequence from the locked row rather than trusting a possibly
+        // stale in-memory value, so concurrent callers cannot mint the same number.
+        $sequence = (int) static::whereKey($this->getKey())->value('invoice_sequence');
         $number = "{$prefix}-" . str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
         $this->increment('invoice_sequence');
         return $number;
